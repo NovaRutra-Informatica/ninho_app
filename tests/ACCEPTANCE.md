@@ -77,6 +77,7 @@ O objetivo é abrir o Ninho e saber o que estudar hoje, sem configurar um sistem
 ## Preferências, dados e recuperação
 
 - Alterar nome, tema, meta diária, duração do foco e intervalo, limite de cartões, som e movimento reduzido.
+- Com sons habilitados, gerar toques curtos após salvar, revisar, concluir aula e finalizar foco. Não gerar confirmação de sucesso em falhas; não duplicar o aviso do cronômetro. Desativar os sons interrompe a reprodução e mantém a preferência após reabrir. O áudio deve ser criado sob demanda, limitado contra repetição rápida e liberado após o uso.
 - Recuperar preferências, notas, provas, tarefas, revisões e materiais após reiniciar o aplicativo.
 - Exportar um backup que inclua dados e anexos; restaurá-lo após confirmação, recuperando o conteúdo esperado.
 - Cancelar a exportação/restauração sem perda de dados. Rejeitar backup inválido sem destruir o perfil atual.

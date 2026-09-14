@@ -1,7 +1,14 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { AppState, Command, NativeApi } from "../shared/types";
 import { applyCommand, createInitialState, validateState } from "../domain";
 import { errorMessage } from "./errors";
+import { soundAfterCommand, StudySoundPlayer, type SoundCue } from "./sounds";
 
 const unavailable = async (): Promise<never> => {
   throw new Error(
@@ -40,6 +47,7 @@ interface AppContextValue {
   act: (command: Command) => Promise<void>;
   replace: (state: AppState) => void;
   notify: (message: string, error?: boolean) => void;
+  playSound: (cue: SoundCue) => void;
   busy: boolean;
 }
 const Context = createContext<AppContextValue | null>(null);
@@ -57,6 +65,9 @@ export function AppProvider({
 }) {
   const [api] = useState(() => nativeApi || window.ninho || browserApi());
   const [state, setState] = useState<AppState | null>(null);
+  const stateRef = useRef<AppState | null>(null);
+  const mounted = useRef(true);
+  const [sounds] = useState(() => new StudySoundPlayer());
   const [error, setError] = useState("");
   const [pending, setPending] = useState(0);
   const [toast, setToast] = useState<{
@@ -70,11 +81,21 @@ export function AppProvider({
       error,
       id: Date.now(),
     });
+  const replace = (next: AppState) => {
+    stateRef.current = next;
+    sounds.setEnabled(next.settings.sound);
+    setState(next);
+  };
+  const playSound = (cue: SoundCue) => {
+    if (mounted.current && stateRef.current?.settings.sound)
+      void sounds.play(cue);
+  };
   useEffect(() => {
     let live = true;
+    mounted.current = true;
     api
       .load()
-      .then((data) => live && setState(data))
+      .then((data) => live && replace(data))
       .catch(
         (e) =>
           live &&
@@ -82,6 +103,8 @@ export function AppProvider({
       );
     return () => {
       live = false;
+      mounted.current = false;
+      sounds.close();
     };
   }, [api]);
   useEffect(() => {
@@ -92,12 +115,19 @@ export function AppProvider({
   const act = async (command: Command) => {
     setPending((n) => n + 1);
     try {
-      setState(await api.dispatch(command));
+      const next = await api.dispatch(command);
+      if (!mounted.current) return;
+      const previous = stateRef.current;
+      replace(next);
+      if (previous) {
+        const cue = soundAfterCommand(command, previous, next);
+        if (cue) playSound(cue);
+      }
     } catch (e) {
       notify(errorMessage(e), true);
       throw e;
     } finally {
-      setPending((n) => n - 1);
+      if (mounted.current) setPending((n) => n - 1);
     }
   };
   if (error)
@@ -118,7 +148,7 @@ export function AppProvider({
     );
   return (
     <Context.Provider
-      value={{ state, api, act, replace: setState, notify, busy: pending > 0 }}
+      value={{ state, api, act, replace, notify, playSound, busy: pending > 0 }}
     >
       {children}
       {toast && (

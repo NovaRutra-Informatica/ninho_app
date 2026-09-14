@@ -157,8 +157,10 @@ export default function Settings() {
           </div>
           <label className="toggle-row">
             <span>
-              <strong>Som ao concluir o foco</strong>
-              <small>Um aviso suave no fim da sessão.</small>
+              <strong>Sons do Ninho</strong>
+              <small>
+                Toques suaves ao salvar, revisar e concluir estudos.
+              </small>
             </span>
             <input
               type="checkbox"

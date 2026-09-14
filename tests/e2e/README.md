@@ -21,7 +21,9 @@ Para repetir somente a regressão de materiais e aulas após compilar:
 npx playwright test tests/e2e/lesson-materials.spec.ts tests/e2e/materials.spec.ts tests/e2e/subject-materials.spec.ts tests/e2e/studies.spec.ts tests/e2e/lesson-focus.spec.ts --workers=2
 ```
 
-O conjunto atual tem 32 cenários. `lesson-materials.spec.ts` verifica importação por aula, movimentação, PDF real e persistência. `lesson-focus.spec.ts` verifica tempo por aula, pausa, reinício e proteção do vínculo. `mentor-readability.spec.ts` cobre tamanhos de texto, espaçamento e movimento reduzido. Os resultados estão em `tests/RESULTADOS-E2E.md`.
+O conjunto atual tem 33 cenários. `lesson-materials.spec.ts` verifica importação por aula, movimentação, PDF real e persistência. `lesson-focus.spec.ts` verifica tempo por aula, pausa, reinício e proteção do vínculo. `mentor-readability.spec.ts` cobre tamanhos de texto, espaçamento e movimento reduzido. Os resultados estão em `tests/RESULTADOS-E2E.md`.
+
+`sounds.spec.ts` confere melodias após salvar, concluir aula, revisar e terminar foco, além da preferência persistida e do fechamento dos recursos após o uso. O grafo de áudio do Chromium é real: um analisador mede a onda produzida antes de um ganho final silenciado. O teste não usa microfone nem depende da saída física de som. Falhas de áudio, repetição rápida e operações rejeitadas também são exercitadas nos testes unitários e de componentes.
 
 `materials.spec.ts` também abre PDFs sintéticos válidos pequeno e de 12 MiB, incluindo o grande após reiniciar. A captura nativa é recortada à página principal do plugin PDF, excluindo toolbar e miniaturas; os pixels dos dois blocos vetoriais devem estar presentes. Iframe visível e controles carregados, sozinhos, não comprovam a pintura. O endereço da prévia deve usar `blob:`, evitando a URL base64 longa que deixava documentos grandes em branco.
 

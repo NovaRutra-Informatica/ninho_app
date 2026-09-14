@@ -104,7 +104,7 @@ function restoreTimer(state: AppState): TimerState {
 }
 
 export function useFocus() {
-  const { state, act, notify } = useApp();
+  const { state, act, notify, playSound } = useApp();
   const [timer, setTimer] = useState<TimerState>(() => restoreTimer(state));
   const [now, setNow] = useState(Date.now());
   const [saving, setSaving] = useState(false);
@@ -268,31 +268,12 @@ export function useFocus() {
           },
         });
         notify("Sessão guardada. Cada minuto conta.");
-      } else if (timer.mode === "break")
+      } else if (timer.mode === "break") {
         notify("Pausa concluída. Pronto para mais um passo?");
-      else {
+        playSound("complete");
+      } else {
         notify("Inicie o foco antes de concluir uma sessão.");
         return;
-      }
-      if (state.settings.sound) {
-        try {
-          const context = new AudioContext();
-          const oscillator = context.createOscillator();
-          const gain = context.createGain();
-          gain.gain.value = 0.04;
-          oscillator.frequency.value = 660;
-          oscillator.connect(gain);
-          gain.connect(context.destination);
-          oscillator.start();
-          gain.gain.exponentialRampToValueAtTime(
-            0.001,
-            context.currentTime + 0.6,
-          );
-          oscillator.stop(context.currentTime + 0.6);
-          oscillator.onended = () => void context.close();
-        } catch {
-          /* Unsupported sound must not lose a saved session. */
-        }
       }
       setTimer(
         freshTimer(

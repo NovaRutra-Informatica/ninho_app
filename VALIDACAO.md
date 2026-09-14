@@ -1,4 +1,18 @@
-# Validação do Ninho 1.1.3
+# Validação do Ninho
+
+## Atualização Windows 1.1.4 — sons
+
+Em 14/09/2026, **500 testes Vitest em 25 arquivos passaram**, incluindo 29 testes novos de sons e sua integração com persistência e foco. TypeScript e compilação de produção passaram. A cobertura instrumentada de domínio e serviços permanece nos percentuais documentados abaixo; os novos módulos de áudio são exercitados por testes, mas não fazem parte desse recorte de cobertura.
+
+O novo E2E de áudio passou com `AudioContext`, osciladores, ganhos e analisador reais do Chromium. Após salvar preferências, concluir aula, revisar cartão e concluir foco, conferiu as frequências programadas e um sinal não nulo. A saída final foi silenciada para não depender do dispositivo físico. Conferiu fechamento ocioso, ausência de áudio ao desativar a preferência e persistência após recarregar. A avaliação subjetiva de timbre e volume nos alto-falantes pessoais não foi executada.
+
+A rodada completa de interface aprovou **32 cenários em 10 minutos** e teve um timeout de seletor: o teste de preferências ainda procurava o rótulo antigo “Som ao concluir o foco”. Após ajustar somente o teste para “Sons do Ninho”, esse cenário passou em **16,1 segundos**. Assim, os **33 cenários distintos foram aprovados**, com a rodada inicial e a repetição documentadas separadamente. Não houve mudança no produto entre essas execuções. Relatórios: `test-results/e2e-v1.1.4-report/index.html` e `test-results/e2e-v1.1.4-settings-report/index.html`.
+
+O smoke do executável empacotado **1.1.4** passou por navegação, temas, janela mínima, reabertura e persistência, com 14 de 14 capturas nativas; evidência em `test-results/packaged-1.1.4-uninstalled/result.json`. A versão **1.1.4 foi instalada** no perfil pessoal. O smoke repetido com o executável realmente instalado, em perfil temporário, também passou com 14 capturas e nenhuma exceção; evidência em `test-results/packaged/result.json`. A captura de Ajustes foi inspecionada e o controle de som está legível. As mudanças estão em `ATUALIZACAO-1.1.4.md`.
+
+Instalador: `release/Ninho-Setup-1.1.4.exe` (118.079.139 bytes), SHA-256 `7F6F5453ACF01F890A8485E0E8870101B9557DD1E1B062EF95BB1FA7EB8BCFDA`. Instalação terminou com código 0, e `scripts/verify-installation.ps1` aprovou executável, versão, pacote, ícone, registro e atalhos. O estado pessoal e os dois PDFs permaneceram byte a byte iguais antes/depois; a preferência de som já ativada foi preservada. Relatórios: `.cache/installation-update-1.1.4.json` e `.cache/installation-verification-1.1.4.json`.
+
+## Entrega instalada anterior: 1.1.3
 
 Executada em 14/09/2026, no Windows 11 x64.
 
@@ -65,7 +79,7 @@ O estado pessoal e os dois PDFs mantiveram seus hashes SHA-256 antes e depois da
 - `coverage/index.html`: cobertura instrumentada.
 - `test-results/e2e-v1.1.3-final-report/index.html`: rodada final de 32 cenários.
 - `test-results/pdf-render-before-report/index.html` e `test-results/pdf-render-after-report/index.html`: reprodução da prévia branca e sua correção, com capturas da página.
-- `test-results/packaged/result.json`: teste do executável instalado 1.1.3 em perfil temporário, com imagens das telas.
+- `test-results/packaged-installed-1.1.3/result.json`: teste histórico do executável instalado 1.1.3 em perfil temporário, com imagens das telas.
 - `tests/RESULTADOS-E2E.md` e `tests/ACCEPTANCE.md`: escopo e critérios dos testes de interface.
 - `VALIDACAO-IA.md`: teste real, desempenho observado e limites da IA.
 - `scripts/verify-installation.ps1`: conferência de versão, executáveis, registro, atalhos, ícone e integridade do estado, sem modificar a instalação.

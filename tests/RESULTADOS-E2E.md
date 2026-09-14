@@ -1,4 +1,20 @@
-# Validação de interface do Ninho 1.1.3
+# Validação de interface do Ninho
+
+## Windows 1.1.4: sons
+
+Em 14/09/2026, o build 1.1.4 passou por todos os **33 cenários distintos**. A rodada completa aprovou 32 em 10 minutos; o cenário de preferências falhou porque ainda usava o nome anterior da opção de som. O seletor foi atualizado para **Sons do Ninho**, e o cenário passou na repetição em 16,1 segundos. Não houve alteração de produto entre as duas execuções. TypeScript, build e 500 testes Vitest passaram.
+
+O novo cenário de áudio aciona salvar preferências, concluir aula, revisar cartão e terminar foco. Os osciladores, ganhos, contexto e analisador do Chromium são reais. Uma saída final silenciada permite medir o sinal sem depender dos alto-falantes, usar microfone ou alterar o volume do Windows. As frequências, o sinal não nulo, o fechamento por inatividade e a preferência desativada após recarregar foram conferidos. Falhas de reprodução, repetição rápida e operações rejeitadas são cobertas pelos testes de lógica e componentes.
+
+O executável empacotado 1.1.4 passou pelo smoke de navegação, temas, janela mínima e reabertura, com 14 capturas nativas. Este smoke usa `release/win-unpacked/Ninho.exe`, em perfil temporário, e não comprova instalação no perfil pessoal.
+
+Após instalar, o mesmo smoke foi executado com `AppData/Local/Programs/Ninho/Ninho.exe`, novamente em perfil temporário: aprovado, 14 capturas e nenhum erro. O script de verificação da instalação também passou; estado pessoal, preferência e dois PDFs foram preservados. Essa evidência separada está em `test-results/packaged/result.json` e `.cache/installation-verification-1.1.4.json`.
+
+- Rodada completa: [relatório 1.1.4](../test-results/e2e-v1.1.4-report/index.html).
+- Preferências após corrigir o seletor: [reteste aprovado](../test-results/e2e-v1.1.4-settings-report/index.html).
+- Pacote antes de instalar: `test-results/packaged-1.1.4-uninstalled/result.json`.
+
+## Histórico 1.1.3
 
 Em 14/09/2026, a suíte completa do **build final 1.1.3 aprovou 32/32 cenários E2E**, em 9,6 minutos, com dois workers: nenhuma falha, nenhum cenário pulado e nenhuma exceção não tratada no renderer. A validação do build também aprovou 471 testes de lógica, serviços e componentes; TypeScript sem erros.
 
@@ -29,7 +45,7 @@ A rodada inicial 1.1.3, com 31 cenários, não cobria PDF grande nem exigia pixe
 - PDF grande: [falha antes da correção](../test-results/pdf-render-before-report/index.html) e [pintura após a correção](../test-results/pdf-render-after-report/index.html).
 - Suíte completa 1.1.1: [abrir relatório](../test-results/e2e-v1.1.1-report/index.html).
 - Regressão 1.1.2: [abrir relatório](../test-results/e2e-v1.1.2-report/index.html).
-- Executável instalado: `test-results/packaged/result.json`.
+- Executável instalado 1.1.3: `test-results/packaged-installed-1.1.3/result.json`.
 - Critérios: [plano de aceitação](ACCEPTANCE.md).
 - Como repetir: [instruções dos testes](e2e/README.md).
 

@@ -72,6 +72,8 @@ Conclua a sessão para guardar o tempo, mesmo que termine antes do tempo previst
 
 Em **Ajustes**, altere nome, metas, duração das sessões, tema claro/escuro/sistema, som e animações. As preferências são aplicadas ao salvar.
 
+Ative **Sons do Ninho** para ouvir toques suaves ao salvar, revisar e concluir estudos ou sessões de foco. Os sons são curtos, produzidos no próprio computador, e só confirmam ações que deram certo. A preferência é preservada nas atualizações; desativar os sons também interrompe um toque em andamento.
+
 Os dados ficam em `%APPDATA%\Ninho`, separados da pasta do programa. O aplicativo funciona localmente; somente a conversa de IA precisa do servidor local do LM Studio. Seus materiais não são enviados a terceiros. A pasta exata aparece nos Ajustes.
 
 **Exportar backup** cria um ZIP com seus dados e anexos. **Restaurar backup** verifica o arquivo e pede confirmação antes de substituir a coleção. A coleção anterior recebe uma cópia de segurança. O backup processa arquivos em partes, aceita ZIP/ZIP64 com até 20 GB e 5.000 anexos e preserva compatibilidade com backups da versão anterior. Faça exportações periódicas para um local de sua escolha.
@@ -99,6 +101,6 @@ Os resultados da validação da entrega ficam em `VALIDACAO.md`. Os dados de tes
 
 ## Instalação no Windows
 
-O instalador desta atualização fica em `C:\Users\aless\Ninho\release\Ninho-Setup-1.1.3.exe`. Ele instala o aplicativo para seu usuário, com ícone da coruja, atalho na área de trabalho, entrada no menu Iniciar e desinstalador em **Configurações → Aplicativos → Aplicativos instalados**. A instalação não exige privilégios de administrador.
+O instalador desta atualização fica em `C:\Users\aless\Ninho\release\Ninho-Setup-1.1.4.exe`. Ele instala o aplicativo para seu usuário, com ícone da coruja, atalho na área de trabalho, entrada no menu Iniciar e desinstalador em **Configurações → Aplicativos → Aplicativos instalados**. A instalação não exige privilégios de administrador.
 
 Os estudos ficam em `%APPDATA%\Ninho`, separados dos arquivos do programa, e são preservados ao atualizar ou desinstalar. Antes da migração foram criadas cópias de segurança na subpasta `backups`. Para o uso diário, utilize o atalho da versão instalada.

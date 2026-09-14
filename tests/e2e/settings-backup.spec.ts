@@ -35,9 +35,7 @@ test("preferências de estudo e acessibilidade persistem após reiniciar", async
   await page.getByLabel("Tempo de foco (minutos)").fill("20");
   await page.getByLabel("Tempo de pausa (minutos)").fill("4");
   await page.getByRole("button", { name: "Escuro", exact: true }).click();
-  await page
-    .getByRole("checkbox", { name: /Som ao concluir o foco/ })
-    .uncheck();
+  await page.getByRole("checkbox", { name: /Sons do Ninho/ }).uncheck();
   await page.getByRole("checkbox", { name: /Reduzir animações/ }).check();
   await page
     .getByRole("button", { name: "Salvar preferências", exact: true })

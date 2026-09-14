@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { AppState, Command, NativeApi } from "../shared/types";
-import { applyCommand, createInitialState } from "../domain";
+import { applyCommand, createInitialState, validateState } from "../domain";
 
 const unavailable = async (): Promise<never> => {
   throw new Error(
@@ -11,8 +11,9 @@ export function browserApi(): NativeApi {
   const key = "ninho-web-preview-v1";
   let state: AppState;
   const get = () =>
-    (state ??=
-      JSON.parse(localStorage.getItem(key) || "null") || createInitialState());
+    (state ??= validateState(
+      JSON.parse(localStorage.getItem(key) || "null") || createInitialState(),
+    ));
   return {
     load: async () => get(),
     dispatch: async (command) => {

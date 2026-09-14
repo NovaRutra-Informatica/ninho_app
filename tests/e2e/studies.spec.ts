@@ -11,6 +11,7 @@ test("catálogo inclui matéria fora de TI, busca, filtro de situação e notas 
     (item) => item.subjectId === subject.id,
   )!;
   await page.getByTestId("nav-studies").click();
+  await page.getByTestId("program-senado-federal").click();
   await page
     .getByRole("textbox", { name: "Buscar matéria ou conteúdo…" })
     .fill("Literatura");
@@ -70,6 +71,7 @@ test("catálogo inclui matéria fora de TI, busca, filtro de situação e notas 
   expect(restored.notes).toBe(notes);
   expect(restored.status).toBe("done");
   await ninho.page.getByTestId("nav-studies").click();
+  await ninho.page.getByTestId("program-senado-federal").click();
   await ninho.page.getByTestId(`subject-${subject.id}`).click();
   await ninho.page.getByTestId(`lesson-status-${lesson.id}`).click();
   await expect
@@ -84,35 +86,36 @@ test("catálogo inclui matéria fora de TI, busca, filtro de situação e notas 
   ).toBe(notes);
 });
 
-test("cria matéria da faculdade, curso, aula e cartão contextual sem alterar o catálogo original", async ({
+test("cria matéria dentro da Mauá, módulo, aula e cartão contextual sem alterar o catálogo original", async ({
   ninho,
 }) => {
   const { page } = ninho;
   await page.getByTestId("nav-studies").click();
+  await page.getByTestId("program-maua").click();
   await page.getByRole("button", { name: "Nova matéria", exact: true }).click();
   let modal = page.getByRole("dialog", { name: "Um novo caminho" });
   await modal.getByLabel("Nome da matéria").fill("Sistemas Distribuídos — E2E");
-  await modal
-    .getByRole("combobox", { name: "Objetivo", exact: true })
-    .selectOption("faculdade");
+  await expect(
+    modal.getByRole("combobox", { name: "Curso", exact: true }),
+  ).toHaveValue("maua");
   await modal.getByRole("button", { name: "Criar matéria" }).click();
   await expect(modal).toHaveCount(0);
   const subject = (await ninho.state()).subjects.find(
     (item) => item.name === "Sistemas Distribuídos — E2E",
   )!;
   expect(subject.track).toBe("faculdade");
-  await page.getByRole("button", { name: "Mauá", exact: true }).click();
+  expect(subject.programId).toBe("maua");
   await page.getByTestId(`subject-${subject.id}`).click();
   await page
-    .getByRole("button", { name: "Adicionar curso", exact: true })
+    .getByRole("button", { name: "Adicionar módulo", exact: true })
     .click();
-  modal = page.getByRole("dialog", { name: "Adicionar curso" });
-  await modal.getByLabel("Nome do curso").fill("Mauá — semestre final");
+  modal = page.getByRole("dialog", { name: "Adicionar módulo" });
+  await modal.getByLabel("Nome do módulo").fill("Mauá — semestre final");
   await modal
-    .getByLabel("Instituição ou plataforma")
+    .getByLabel("Instituição ou fonte")
     .fill("Instituto Mauá de Tecnologia");
   await modal
-    .getByRole("button", { name: "Adicionar curso", exact: true })
+    .getByRole("button", { name: "Adicionar módulo", exact: true })
     .click();
   await expect(modal).toHaveCount(0);
   await page
@@ -156,7 +159,8 @@ test("cria matéria da faculdade, curso, aula e cartão contextual sem alterar o
   expect(card.lastReviewedAt).toBeNull();
   await ninho.openDialog([path.join(ninho.fixtureDir, "revisao-redes.txt")]);
   await row
-    .getByRole("button", { name: "Anexar arquivo", exact: true })
+    .getByTestId(`lesson-materials-${lesson.id}`)
+    .getByRole("button", { name: "Adicionar arquivos à aula", exact: true })
     .click();
   await expect.poll(async () => (await ninho.state()).materials.length).toBe(1);
   expect((await ninho.state()).materials[0]).toMatchObject({
@@ -165,14 +169,16 @@ test("cria matéria da faculdade, curso, aula e cartão contextual sem alterar o
   });
 });
 
-test("edita matéria, curso e aula preservando vínculos, anotações e progresso", async ({
+test("edita matéria, módulo e aula preservando vínculos, anotações e progresso", async ({
   ninho,
 }) => {
   const { page } = ninho;
   const initial = await ninho.state();
   const subject = initial.subjects.find((item) => item.name === "Literatura")!;
   const lesson = initial.lessons.find(
-    (item) => item.subjectId === subject.id && initial.cards.some((card) => card.lessonId === item.id),
+    (item) =>
+      item.subjectId === subject.id &&
+      initial.cards.some((card) => card.lessonId === item.id),
   )!;
   const course = initial.courses.find((item) => item.id === lesson.courseId)!;
   const originalCards = initial.cards.filter(
@@ -180,6 +186,7 @@ test("edita matéria, curso e aula preservando vínculos, anotações e progress
   );
   expect(originalCards.length).toBeGreaterThan(0);
   await page.getByTestId("nav-studies").click();
+  await page.getByTestId("program-senado-federal").click();
   await page.getByTestId(`subject-${subject.id}`).click();
   const row = page.getByTestId(`lesson-row-${lesson.id}`);
   await row
@@ -230,19 +237,19 @@ test("edita matéria, curso e aula preservando vínculos, anotações e progress
   });
 
   await page
-    .getByRole("button", { name: `Editar curso ${course.title}`, exact: true })
+    .getByRole("button", { name: `Editar módulo ${course.title}`, exact: true })
     .click();
-  modal = page.getByRole("dialog", { name: "Editar curso", exact: true });
+  modal = page.getByRole("dialog", { name: "Editar módulo", exact: true });
   await modal
-    .getByRole("textbox", { name: "Nome do curso", exact: true })
+    .getByRole("textbox", { name: "Nome do módulo", exact: true })
     .fill("Literatura — organização pessoal E2E");
   const courseUrl = new URL(course.url);
   courseUrl.searchParams.set("organizacao", "teste");
   await modal
-    .getByRole("textbox", { name: "Link do curso", exact: true })
+    .getByRole("textbox", { name: "Link do módulo", exact: true })
     .fill(courseUrl.href);
   await modal
-    .getByRole("button", { name: "Salvar curso", exact: true })
+    .getByRole("button", { name: "Salvar módulo", exact: true })
     .click();
   await expect(modal).toHaveCount(0);
   await page
@@ -277,6 +284,7 @@ test("edita matéria, curso e aula preservando vínculos, anotações e progress
   await ninho.restart();
   expect(await ninho.state()).toEqual(edited);
   await ninho.page.getByTestId("nav-studies").click();
+  await ninho.page.getByTestId("program-senado-federal").click();
   await ninho.page.getByTestId(`subject-${subject.id}`).click();
   const restoredRow = ninho.page.getByTestId(`lesson-row-${lesson.id}`);
   await restoredRow

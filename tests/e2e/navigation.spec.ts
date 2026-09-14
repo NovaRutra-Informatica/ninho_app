@@ -40,6 +40,11 @@ test("as áreas abrem sem cortes horizontais e permanecem acessíveis pelo tecla
   await today.focus();
   await page.keyboard.press("Enter");
   await expect(today).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("today-calendar").click();
+  await expect(page.getByTestId("nav-agenda")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   await page.getByTestId("open-focus").click();
   await expect(page.getByTestId("focus-timer")).toBeVisible();
   await page.keyboard.press("Escape");

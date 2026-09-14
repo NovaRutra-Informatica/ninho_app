@@ -48,6 +48,30 @@ function Harness() {
   return (
     <>
       <button onClick={() => setOpen(true)}>Abrir foco</button>
+      <button
+        data-testid="select-lesson-a"
+        onClick={() => focus.selectLesson("240830:aula:00")}
+      >
+        Focar aula A
+      </button>
+      <button
+        data-testid="select-lesson-b"
+        onClick={() => focus.selectLesson("240830:aula:01")}
+      >
+        Focar aula B
+      </button>
+      <button
+        data-testid="select-invalid-lesson"
+        onClick={() => focus.selectLesson("missing")}
+      >
+        Aula ausente
+      </button>
+      <button
+        data-testid="select-other-subject"
+        onClick={() => focus.setSubject("literatura")}
+      >
+        Outra matéria
+      </button>
       <pre data-testid="timer-state">{JSON.stringify(focus.timer)}</pre>
       <pre data-testid="sessions">{JSON.stringify(state.sessions)}</pre>
       {open && <FocusModal focus={focus} close={() => setOpen(false)} />}
@@ -470,5 +494,346 @@ describe("focus timer real command integration", () => {
     expect(timer().sessionId).not.toBe(originalId);
     expect(get().sessions).toHaveLength(1);
     expect(api.dispatch).not.toHaveBeenCalled();
+  });
+  it("links exact early study time to the selected lesson without changing its completion status", async () => {
+    const { api, get } = native();
+    await mount(api);
+    await click("select-lesson-a");
+    expect(screen.getByLabelText("Aula")).toHaveValue("240830:aula:00");
+    expect(screen.getByTestId("focus-lesson")).toHaveTextContent(
+      "Banco de dados · Aula 00",
+    );
+    await click("focus-start");
+    await advance(1250);
+    await click("focus-finish");
+    expect(get().sessions[0]).toMatchObject({
+      subjectId: "banco-de-dados",
+      lessonId: "240830:aula:00",
+      durationMinutes: 1.25 / 60,
+    });
+    expect(
+      get().lessons.find((lesson) => lesson.id === "240830:aula:00")?.status,
+    ).toBe("not-started");
+    expect(timer()).toMatchObject({
+      mode: "break",
+      lessonId: "240830:aula:00",
+    });
+  });
+
+  it("keeps lesson attribution through automatic completion and a full break", async () => {
+    const initial = createInitialState(now);
+    initial.settings.focusMinutes = 1;
+    initial.settings.breakMinutes = 1;
+    const { api, get } = native(initial);
+    await mount(api);
+    await click("select-lesson-a");
+    await click("focus-start");
+    await advance(60_000);
+    expect(get().sessions).toHaveLength(1);
+    expect(get().sessions[0]).toMatchObject({
+      durationMinutes: 1,
+      lessonId: "240830:aula:00",
+    });
+    await click("focus-start");
+    await advance(60_000);
+    expect(get().sessions).toHaveLength(1);
+    expect(timer()).toMatchObject({
+      mode: "focus",
+      lessonId: "240830:aula:00",
+      remaining: 60,
+    });
+  });
+
+  it("preserves the lesson and accumulated time across pause, modal close, reload and resume", async () => {
+    const { api, get } = native();
+    const first = await mount(api);
+    await click("select-lesson-a");
+    await click("focus-start");
+    await advance(10_250);
+    await click("focus-pause");
+    fireEvent.click(screen.getByRole("button", { name: "Fechar janela" }));
+    await advance(20_000);
+    first.unmount();
+    await advance(20_000);
+    await mount(api);
+    expect(timer()).toMatchObject({
+      remaining: 1489.75,
+      lessonId: "240830:aula:00",
+      running: false,
+    });
+    expect(screen.getByLabelText("Matéria")).toBeDisabled();
+    expect(screen.getByLabelText("Aula")).toBeDisabled();
+    await click("focus-start");
+    await advance(9750);
+    await click("focus-finish");
+    expect(get().sessions[0]).toMatchObject({
+      lessonId: "240830:aula:00",
+      durationMinutes: 20 / 60,
+    });
+  });
+
+  it("blocks lesson, subject and mode changes after focus starts, without discarding or transferring time", async () => {
+    const { api, get } = native();
+    await mount(api);
+    await click("select-lesson-a");
+    await click("focus-start");
+    await advance(4000);
+    const originalId = timer().sessionId;
+    await click("select-lesson-b");
+    expect(timer()).toMatchObject({
+      lessonId: "240830:aula:00",
+      running: true,
+      sessionId: originalId,
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Conclua ou reinicie");
+    await click("focus-pause");
+    await click("select-other-subject");
+    fireEvent.click(screen.getByRole("button", { name: /^Pausa$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Foco$/ }));
+    expect(timer()).toMatchObject({
+      mode: "focus",
+      lessonId: "240830:aula:00",
+      subjectId: "banco-de-dados",
+      remaining: 1496,
+      sessionId: originalId,
+    });
+    await click("select-lesson-a");
+    expect(timer().remaining).toBe(1496);
+    await click("focus-finish");
+    expect(get().sessions[0]).toMatchObject({
+      lessonId: "240830:aula:00",
+      durationMinutes: 4 / 60,
+    });
+  });
+
+  it("allows explicit restart, then starts another lesson with zero transferred time", async () => {
+    const { api, get } = native();
+    await mount(api);
+    await click("select-lesson-a");
+    await click("focus-start");
+    await advance(12_000);
+    await click("focus-reset");
+    expect(timer()).toMatchObject({
+      lessonId: "240830:aula:00",
+      remaining: 1500,
+      running: false,
+    });
+    expect(get().sessions).toHaveLength(0);
+    expect(screen.getByLabelText("Aula")).not.toBeDisabled();
+    await click("select-lesson-b");
+    await click("focus-start");
+    await advance(2000);
+    await click("focus-finish");
+    expect(get().sessions).toHaveLength(1);
+    expect(get().sessions[0]).toMatchObject({
+      lessonId: "240830:aula:01",
+      durationMinutes: 2 / 60,
+    });
+    await click("select-lesson-a");
+    expect(timer()).toMatchObject({
+      mode: "focus",
+      lessonId: "240830:aula:00",
+      remaining: 1500,
+    });
+  });
+
+  it("guards lesson changes and duplicate completion while a lesson session is being saved", async () => {
+    const { api, get } = native();
+    const original = api.dispatch;
+    let release!: () => void;
+    api.dispatch = vi.fn(async (command) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return original(command);
+    });
+    await mount(api);
+    await click("select-lesson-a");
+    await click("focus-start");
+    await advance(5000);
+    await click("focus-finish");
+    await click("select-lesson-b");
+    fireEvent.click(screen.getByTestId("focus-finish"));
+    expect(timer().lessonId).toBe("240830:aula:00");
+    expect(api.dispatch).toHaveBeenCalledTimes(1);
+    await act(async () => release());
+    expect(get().sessions).toHaveLength(1);
+    expect(get().sessions[0]).toMatchObject({
+      lessonId: "240830:aula:00",
+      durationMinutes: 5 / 60,
+    });
+  });
+
+  it("retains both elapsed time and lesson context after a failed write, allowing one safe retry", async () => {
+    const { api, get } = native();
+    const original = api.dispatch;
+    api.dispatch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Disco indisponível"))
+      .mockImplementation(original);
+    await mount(api);
+    await click("select-lesson-a");
+    await click("focus-start");
+    await advance(15000);
+    await click("focus-finish");
+    expect(screen.getByRole("alert")).toHaveTextContent("Disco indisponível");
+    expect(get().sessions).toHaveLength(0);
+    await click("select-lesson-b");
+    expect(timer()).toMatchObject({
+      lessonId: "240830:aula:00",
+      remaining: 1485,
+    });
+    await advance(10000);
+    await click("focus-finish");
+    expect(get().sessions).toHaveLength(1);
+    expect(get().sessions[0]).toMatchObject({
+      lessonId: "240830:aula:00",
+      durationMinutes: 0.25,
+    });
+  });
+
+  it.each(["missing", "240664:aula:00"])(
+    "normalizes an unavailable or mismatched persisted lesson %s without crediting another lesson",
+    async (lessonId) => {
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          duration: 60,
+          remaining: 30,
+          running: false,
+          mode: "focus",
+          endAt: null,
+          subjectId: "banco-de-dados",
+          lessonId,
+          sessionId: "195a26a9-aa0b-4f08-9d50-789b8842e3cb",
+        }),
+      );
+      const { api, get } = native();
+      await mount(api);
+      expect(timer()).toMatchObject({
+        lessonId: "",
+        subjectId: "banco-de-dados",
+        remaining: 30,
+      });
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "nenhum minuto foi transferido",
+      );
+      await click("focus-finish");
+      expect(get().sessions[0]).toMatchObject({
+        lessonId: "",
+        durationMinutes: 0.5,
+      });
+    },
+  );
+
+  it("retains lesson focus from a running persisted timer and avoids a second record after replaying a saved timer", async () => {
+    const { api, get } = native();
+    const first = await mount(api);
+    await click("select-lesson-a");
+    await click("focus-start");
+    await advance(10000);
+    const beforeFinish = localStorage.getItem(key)!;
+    first.unmount();
+    await advance(5000);
+    const second = await mount(api);
+    expect(timer()).toMatchObject({
+      lessonId: "240830:aula:00",
+      remaining: 1485,
+      running: false,
+    });
+    await click("focus-finish");
+    expect(get().sessions[0]).toMatchObject({
+      lessonId: "240830:aula:00",
+      durationMinutes: 0.25,
+    });
+    second.unmount();
+    localStorage.setItem(key, beforeFinish);
+    await mount(api);
+    expect(timer()).toMatchObject({
+      mode: "break",
+      lessonId: "240830:aula:00",
+    });
+    expect(get().sessions).toHaveLength(1);
+    expect(api.dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects nonexistent lessons and retains generic focus compatibility with old timers", async () => {
+    const { api, get } = native();
+    await mount(api);
+    await click("select-invalid-lesson");
+    expect(timer()).toMatchObject({ lessonId: "", remaining: 1500 });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "não está mais disponível",
+    );
+    await click("focus-start");
+    await advance(1000);
+    await click("focus-finish");
+    expect(get().sessions[0].lessonId).toBe("");
+  });
+
+  it("lets a fresh timer choose an optional lesson within its subject and clears the lesson when changing subject", async () => {
+    await mount(native().api);
+    fireEvent.change(screen.getByLabelText("Matéria"), {
+      target: { value: "banco-de-dados" },
+    });
+    fireEvent.change(screen.getByLabelText("Aula"), {
+      target: { value: "240830:aula:00" },
+    });
+    expect(timer()).toMatchObject({
+      subjectId: "banco-de-dados",
+      lessonId: "240830:aula:00",
+      running: false,
+    });
+    fireEvent.change(screen.getByLabelText("Matéria"), {
+      target: { value: "literatura" },
+    });
+    expect(timer()).toMatchObject({ subjectId: "literatura", lessonId: "" });
+    expect(
+      screen
+        .getByLabelText("Aula")
+        .querySelector('option[value="240830:aula:00"]'),
+    ).toBeNull();
+  });
+
+  it("preserves running time without attributing it to another lesson when a restored backup removes the active lesson", async () => {
+    const { api, get, restore } = native();
+    const restoreCollection = () =>
+      restore({
+        ...get(),
+        lessons: get().lessons.filter((item) => item.id !== "240830:aula:00"),
+        cards: get().cards.filter((item) => item.lessonId !== "240830:aula:00"),
+      });
+    await act(async () => {
+      render(
+        <AppProvider nativeApi={api}>
+          <RestoreHarness restore={restoreCollection} />
+        </AppProvider>,
+      );
+    });
+    await click("select-lesson-a");
+    await click("focus-start");
+    await advance(15_250);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Restaurar coleção de teste" }),
+      ),
+    );
+    expect(timer()).toMatchObject({
+      subjectId: "banco-de-dados",
+      lessonId: "",
+      running: true,
+      duration: 1500,
+    });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "nenhum minuto foi transferido",
+    );
+    await advance(4750);
+    await click("focus-finish");
+    expect(get().sessions).toHaveLength(1);
+    expect(get().sessions[0]).toMatchObject({
+      lessonId: "",
+      subjectId: "banco-de-dados",
+      durationMinutes: 20 / 60,
+    });
   });
 });

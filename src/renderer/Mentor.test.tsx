@@ -6,7 +6,6 @@ import {
   fireEvent,
   render,
   screen,
-  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInitialState, getMentorOverview } from "../domain";
@@ -48,18 +47,21 @@ function fixture(): AppState {
         id: "banco",
         name: "Banco de dados",
         track: "concurso",
+        programId: "senado-federal",
         color: "#66895a",
       },
       {
         id: "portugues",
         name: "Língua Portuguesa",
         track: "concurso",
+        programId: "senado-federal",
         color: "#8175a6",
       },
       {
         id: "literatura",
         name: "Literatura",
         track: "concurso",
+        programId: "senado-federal",
         color: "#a6856b",
       },
     ],
@@ -128,6 +130,22 @@ function native(state: AppState): NativeApi {
     exportBackup: vi.fn(),
     restoreBackup: vi.fn(),
     getPaths: vi.fn(),
+    aiStatus: vi.fn(async () => ({
+      available: true,
+      models: [{ id: "qwen/test-4b", name: "Modelo de teste", loaded: true }],
+      activeModel: "qwen/test-4b",
+      busy: false,
+      endpoint: "http://127.0.0.1:1234",
+      idleMinutes: 5,
+    })),
+    aiChat: vi.fn(async (request) => ({
+      requestId: request.requestId,
+      modelId: request.modelId,
+      content:
+        "Podemos rever um exemplo de Língua Portuguesa e praticar juntos.",
+    })),
+    aiCancel: vi.fn(async () => {}),
+    aiUnload: vi.fn(async () => {}),
   };
 }
 async function mount(state = fixture()) {
@@ -143,12 +161,6 @@ async function mount(state = fixture()) {
   });
   return { api, onNavigate, openFocus, state };
 }
-const log = () => screen.getByRole("log", { name: "Conversa com a Íris" });
-const assistantMessages = () =>
-  Array.from(log().querySelectorAll(".mentor-message.iris p")).map(
-    (element) => element.textContent || "",
-  );
-
 describe("Íris: acompanhamento local baseado nos registros reais", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -182,9 +194,7 @@ describe("Íris: acompanhamento local baseado nos registros reais", () => {
       screen.getAllByText(/Isso não mede domínio da matéria/),
     ).toHaveLength(2);
     expect(
-      screen.getByText(
-        /Não lê PDFs, não consulta sites e não usa IA generativa/,
-      ),
+      screen.getByText(/Arquivos e vídeos não são lidos automaticamente/),
     ).toBeInTheDocument();
     expect(api.dispatch).not.toHaveBeenCalled();
     expect(api.openExternal).not.toHaveBeenCalled();
@@ -209,8 +219,8 @@ describe("Íris: acompanhamento local baseado nos registros reais", () => {
     );
   });
 
-  it("filtra por matéria incluindo uma disciplina fora de TI e contextualiza as respostas", async () => {
-    await mount();
+  it("filtra por matéria fora de TI e envia o contexto ao componente real de conversa com IA", async () => {
+    const { api } = await mount();
     fireEvent.change(screen.getByLabelText("Matéria para a Íris analisar"), {
       target: { value: "portugues" },
     });
@@ -221,15 +231,33 @@ describe("Íris: acompanhamento local baseado nos registros reais", () => {
     expect(
       screen.queryByTestId("mentor-insight-literatura"),
     ).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Pergunte à Íris")).toHaveAttribute(
-      "placeholder",
-      "O que revisar em Língua Portuguesa?",
+    expect(
+      screen.getByTestId("ai-chat").querySelector(".ai-context"),
+    ).toHaveTextContent("Língua Portuguesa");
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Converse com Íris" }),
+      { target: { value: "Como posso praticar interpretação de texto?" } },
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "O que pode estar desatualizado?" }),
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Enviar à Íris" }));
+    });
+    expect(api.aiChat).toHaveBeenCalledWith({
+      requestId: expect.any(String),
+      modelId: "qwen/test-4b",
+      subjectId: "portugues",
+      messages: [
+        {
+          role: "user",
+          content: "Como posso praticar interpretação de texto?",
+        },
+      ],
+    });
+    expect(
+      screen.getByRole("log", { name: "Conversa com Íris" }),
+    ).toHaveTextContent(
+      "Podemos rever um exemplo de Língua Portuguesa e praticar juntos.",
     );
-    expect(within(log()).getAllByText("Língua Portuguesa")).toHaveLength(2);
-    expect(assistantMessages().at(-1)).not.toMatch(/Banco de dados/);
+    expect(api.dispatch).not.toHaveBeenCalled();
   });
 
   it("usa os atalhos de sinais para distinguir esquecimento, dúvidas e fonte desatualizada", async () => {
@@ -343,7 +371,7 @@ describe("Íris: acompanhamento local baseado nos registros reais", () => {
     );
   });
 
-  it("abre uma fonte marcada no cartão exato a partir do diagnóstico e da conversa", async () => {
+  it("abre uma fonte marcada no cartão exato a partir do diagnóstico", async () => {
     const { onNavigate } = await mount();
     fireEvent.click(
       screen.getByRole("button", {
@@ -359,22 +387,9 @@ describe("Íris: acompanhamento local baseado nos registros reais", () => {
         target: "reviews",
       }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "O que pode estar desatualizado?" }),
-    );
-    fireEvent.click(
-      within(log()).getByRole("button", {
-        name: "Conferir fonte · Língua Portuguesa",
-      }),
-    );
-    expect(onNavigate).toHaveBeenLastCalledWith(
-      "reviews",
-      "portugues",
-      expect.objectContaining({ id: "source:fonte", cardId: "fonte" }),
-    );
   });
 
-  it("leva a matéria selecionada ao foco, inclusive em ação da conversa", async () => {
+  it("leva a matéria selecionada ao foco", async () => {
     const { openFocus } = await mount();
     fireEvent.change(screen.getByLabelText("Matéria para a Íris analisar"), {
       target: { value: "portugues" },
@@ -384,96 +399,5 @@ describe("Íris: acompanhamento local baseado nos registros reais", () => {
     });
     fireEvent.click(reserve[0]);
     expect(openFocus).toHaveBeenLastCalledWith("portugues");
-    fireEvent.change(screen.getByLabelText("Pergunte à Íris"), {
-      target: { value: "Quanto tempo de foco?" },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Enviar pergunta à Íris" }),
-    );
-    fireEvent.click(
-      within(log()).getByRole("button", { name: "Abrir cronômetro de foco" }),
-    );
-    expect(openFocus).toHaveBeenLastCalledWith("portugues");
-  });
-
-  it.each([
-    "O que estudar hoje?",
-    "Onde preciso melhorar?",
-    "Esqueci algum assunto?",
-    "O que pode estar desatualizado?",
-  ])("responde à pergunta sugerida com motor real: %s", async (question) => {
-    await mount();
-    fireEvent.click(screen.getByRole("button", { name: question }));
-    expect(within(log()).getByText(question)).toBeInTheDocument();
-    expect(assistantMessages()).toHaveLength(2);
-    expect(assistantMessages()[1].length).toBeGreaterThan(30);
-    expect(assistantMessages()[1]).not.toContain(
-      "Experimente “o que estudar hoje?”",
-    );
-    expect(screen.getByLabelText("Pergunte à Íris")).toHaveValue("");
-  });
-
-  it("envia texto por botão ou Enter, ignora espaços e mantém Shift+Enter disponível", async () => {
-    await mount();
-    const input = screen.getByLabelText("Pergunte à Íris");
-    const send = screen.getByRole("button", { name: "Enviar pergunta à Íris" });
-    expect(send).toBeDisabled();
-    fireEvent.change(input, { target: { value: "   " } });
-    expect(send).toBeDisabled();
-    fireEvent.keyDown(input, { key: "Enter" });
-    expect(assistantMessages()).toHaveLength(1);
-    fireEvent.change(input, {
-      target: { value: "Tenho alguma prova próxima?" },
-    });
-    fireEvent.click(send);
-    expect(
-      within(log()).getByText("Tenho alguma prova próxima?"),
-    ).toBeInTheDocument();
-    expect(assistantMessages()).toHaveLength(2);
-    fireEvent.change(input, {
-      target: { value: "Como posso estudar com foco?" },
-    });
-    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
-    expect(assistantMessages()).toHaveLength(2);
-    fireEvent.keyDown(input, { key: "Enter" });
-    expect(assistantMessages()).toHaveLength(3);
-    expect(input).toHaveAttribute("maxlength", "1000");
-  });
-
-  it("executa uma ação oferecida na conversa e limpa apenas a conversa local", async () => {
-    const { onNavigate, api } = await mount();
-    const input = screen.getByLabelText("Pergunte à Íris");
-    fireEvent.change(input, {
-      target: { value: "Tenho alguma prova próxima?" },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Enviar pergunta à Íris" }),
-    );
-    const actions = within(log()).getAllByRole("button");
-    expect(actions.length).toBeGreaterThan(0);
-    fireEvent.click(actions[0]);
-    expect(onNavigate).toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Limpar conversa com a Íris" }),
-    );
-    expect(assistantMessages()).toHaveLength(1);
-    expect(
-      within(log()).queryByText("Tenho alguma prova próxima?"),
-    ).not.toBeInTheDocument();
-    expect(screen.getByTestId("mentor-insight-banco")).toBeInTheDocument();
-    expect(api.dispatch).not.toHaveBeenCalled();
-    expect(input).toHaveFocus();
-  });
-
-  it("explica a falta de suporte para perguntas fora do acompanhamento sem inventar uma resposta", async () => {
-    await mount();
-    fireEvent.change(screen.getByLabelText("Pergunte à Íris"), {
-      target: { value: "Qual é o resultado de 217 vezes 839?" },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Enviar pergunta à Íris" }),
-    );
-    expect(assistantMessages().at(-1)).toMatch(/local|registros|revis|estud/i);
-    expect(assistantMessages().at(-1)).not.toContain("182063");
   });
 });

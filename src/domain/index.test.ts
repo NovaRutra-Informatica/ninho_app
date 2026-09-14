@@ -162,7 +162,7 @@ describe("seed and validation", () => {
     null,
     [],
     {},
-    { ...state(), version: 2 },
+    { ...state(), version: 99 },
     { ...state(), injected: true },
   ])("rejects malformed or unknown state %j", (input) => {
     expect(() => validateState(input)).toThrow();

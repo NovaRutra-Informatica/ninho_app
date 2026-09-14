@@ -11,8 +11,16 @@ export interface Settings {
   sound: boolean;
   reducedMotion: boolean;
 }
+export interface StudyProgram {
+  id: string;
+  name: string;
+  track: Track;
+  color: string;
+  description: string;
+}
 export interface Subject {
   id: string;
+  programId: string;
   name: string;
   track: Track;
   color: string;
@@ -91,8 +99,9 @@ export interface StudyTask {
   completed: boolean;
 }
 export interface AppState {
-  version: 1;
+  version: 2;
   settings: Settings;
+  programs: StudyProgram[];
   subjects: Subject[];
   courses: Course[];
   lessons: Lesson[];
@@ -104,7 +113,11 @@ export interface AppState {
 }
 export type Command =
   | { type: "settings.update"; patch: Partial<Settings> }
-  | { type: "subject.save"; subject: Subject }
+  | { type: "program.save"; program: StudyProgram }
+  | {
+      type: "subject.save";
+      subject: Omit<Subject, "programId"> & { programId?: string };
+    }
   | { type: "course.save"; course: Course }
   | {
       type: "lesson.save";
@@ -147,10 +160,41 @@ export type Command =
     }
   | { type: "material.remove"; id: string };
 export interface MaterialPreview {
-  kind: "pdf" | "image" | "text" | "external";
+  kind: "pdf" | "image" | "text" | "external" | "video" | "audio";
   name: string;
   data?: string;
   mime?: string;
+  url?: string;
+}
+export interface AiModel {
+  id: string;
+  name: string;
+  loaded: boolean;
+  sizeBytes?: number;
+  recommended?: boolean;
+  blockedReason?: string;
+  params?: string;
+}
+export interface AiStatus {
+  available: boolean;
+  models: AiModel[];
+  activeModel: string | null;
+  busy: boolean;
+  error?: string;
+  ownedModel?: string | null;
+  endpoint: string;
+  idleMinutes: number;
+}
+export interface AiChatRequest {
+  requestId: string;
+  modelId: string;
+  messages: { role: "user" | "assistant"; content: string }[];
+  subjectId?: string;
+}
+export interface AiChatReply {
+  requestId: string;
+  content: string;
+  modelId: string;
 }
 export interface NativeApi {
   load(): Promise<AppState>;
@@ -165,6 +209,10 @@ export interface NativeApi {
   exportBackup(): Promise<string | null>;
   restoreBackup(): Promise<AppState | null>;
   getPaths(): Promise<{ data: string; backup: string }>;
+  aiStatus?(): Promise<AiStatus>;
+  aiChat?(request: AiChatRequest): Promise<AiChatReply>;
+  aiCancel?(requestId: string): Promise<void>;
+  aiUnload?(): Promise<void>;
 }
 declare global {
   interface Window {

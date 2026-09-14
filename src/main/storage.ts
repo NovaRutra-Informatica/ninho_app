@@ -1,10 +1,14 @@
-import { constants } from "node:fs";
+import { constants, createWriteStream } from "node:fs";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { inflateRawSync } from "node:zlib";
 import AdmZip from "adm-zip";
 import { applyCommand, createInitialState, validateState } from "../domain";
+import { inferMaterialContext } from "./material-context";
+import { readBackupFile, writeBackupFile } from "./backup";
 import type {
   AppState,
   Command,
@@ -15,7 +19,8 @@ import {
   assertFileContent,
   managedPath,
   materialExtension,
-  MAX_BACKUP_BYTES,
+  materialLimit,
+  isMedia,
   MAX_BACKUP_ENTRIES,
   MAX_MATERIAL_BYTES,
   MAX_STATE_BYTES,
@@ -254,21 +259,72 @@ export class StudyStore {
           if (typeof original !== "string" || !path.isAbsolute(original))
             throw new Error("Caminho de arquivo inválido.");
           const extension = materialExtension(original);
-          const data = await readBounded(original, MAX_MATERIAL_BYTES);
-          assertFileContent(extension, data);
           const id = randomUUID();
           const storedName = `${id}.${extension}`;
           const destination = managedPath(this.materialsDirectory, storedName);
-          await fs.writeFile(destination, data, { flag: "wx", mode: 0o600 });
-          createdFiles.push(destination);
+          let size: number;
+          if (isMedia(extension)) {
+            const stat = await fs.lstat(original);
+            if (!stat.isFile() || stat.isSymbolicLink())
+              throw new Error(
+                "Escolha um arquivo comum, sem atalhos ou links simbólicos.",
+              );
+            if (stat.size > materialLimit(extension))
+              throw new Error("O vídeo ou áudio excede o limite de 2 GB.");
+            const handle = await fs.open(original, constants.O_RDONLY);
+            try {
+              const opened = await handle.stat();
+              if (!opened.isFile() || opened.size !== stat.size)
+                throw new Error("O arquivo foi alterado durante a leitura.");
+              const header = Buffer.alloc(8192);
+              const { bytesRead } = await handle.read(
+                header,
+                0,
+                header.length,
+                0,
+              );
+              assertFileContent(extension, header.subarray(0, bytesRead));
+              size = 0;
+              const bounded = new Transform({
+                transform(chunk, _encoding, callback) {
+                  size += chunk.length;
+                  callback(
+                    size > materialLimit(extension)
+                      ? new Error("O vídeo ou áudio excede o limite de 2 GB.")
+                      : null,
+                    chunk,
+                  );
+                },
+              });
+              const output = createWriteStream(destination, {
+                flags: "wx",
+                mode: 0o600,
+              });
+              output.once("open", () => createdFiles.push(destination));
+              await pipeline(
+                handle.createReadStream({ start: 0, autoClose: false }),
+                bounded,
+                output,
+              );
+              if (size !== opened.size)
+                throw new Error("O arquivo foi alterado durante a cópia.");
+            } finally {
+              await handle.close();
+            }
+          } else {
+            const data = await readBounded(original, MAX_MATERIAL_BYTES);
+            assertFileContent(extension, data);
+            await fs.writeFile(destination, data, { flag: "wx", mode: 0o600 });
+            createdFiles.push(destination);
+            size = data.length;
+          }
           materials.push({
             id,
             name: path.basename(original),
             storedName,
             type: extension,
-            size: data.length,
-            subjectId: context.subjectId ?? "",
-            lessonId: context.lessonId ?? "",
+            size,
+            ...inferMaterialContext(state, original, context),
             createdAt: new Date().toISOString(),
             notes: "",
           });
@@ -346,47 +402,11 @@ export class StudyStore {
     });
   }
 
-  private async backupBuffer(state: AppState): Promise<Buffer> {
-    const zip = new AdmZip();
-    const stateData = Buffer.from(
-      JSON.stringify(validateState(state), null, 2),
-    );
-    const files: Manifest["files"] = [
-      { path: "state.json", size: stateData.length, sha256: digest(stateData) },
-    ];
-    zip.addFile("state.json", stateData);
-    let total = stateData.length;
-    if (state.materials.length > MAX_BACKUP_ENTRIES - 2)
-      throw new Error("O backup suporta até 5.000 anexos.");
-    const storedNames = new Set<string>();
-    for (const material of state.materials) {
-      const name = validateStoredName(material.storedName);
-      if (storedNames.has(name.toLowerCase()))
-        throw new Error("Há anexos internos duplicados na coleção.");
-      storedNames.add(name.toLowerCase());
-      const data = await readBounded(
-        managedPath(this.materialsDirectory, name),
-        MAX_MATERIAL_BYTES,
-      );
-      assertFileContent(materialExtension(name), data);
-      total += data.length;
-      if (total > MAX_BACKUP_BYTES)
-        throw new Error("O backup excede o limite de 1 GB.");
-      const entryPath = `materials/${name}`;
-      zip.addFile(entryPath, data);
-      files.push({ path: entryPath, size: data.length, sha256: digest(data) });
-    }
-    const manifest: Manifest = {
-      format: "NinhoBackup",
-      version: 1,
-      createdAt: new Date().toISOString(),
-      files,
-    };
-    zip.addFile(
-      "manifest.json",
-      Buffer.from(JSON.stringify(manifest, null, 2)),
-    );
-    return zip.toBuffer();
+  private async backupFile(
+    state: AppState,
+    destination: string,
+  ): Promise<void> {
+    await writeBackupFile(state, this.materialsDirectory, destination);
   }
 
   exportBackup(destination: string): Promise<string> {
@@ -397,91 +417,110 @@ export class StudyStore {
       )
         throw new Error("Salve o backup como um arquivo .zip.");
       const state = await this.loadUnlocked();
-      await atomicWrite(destination, await this.backupBuffer(state));
+      await this.backupFile(state, destination);
       return destination;
     });
   }
 
   restoreBackup(source: string): Promise<AppState> {
     return this.serial(async () => {
-      const zipData = await readBounded(source, MAX_BACKUP_BYTES);
-      const restored = readBackup(zipData);
+      if (!path.isAbsolute(source))
+        throw new Error("Escolha um backup ZIP válido do Ninho.");
       await this.prepareDirectories();
-      let oldState: AppState | undefined;
+      const staging = await fs.mkdtemp(path.join(this.directory, ".restore-"));
       try {
-        oldState = await this.loadUnlocked();
-      } catch (error) {
-        if (!(error instanceof DataRecoveryError)) throw error;
-      }
-      if (oldState) {
-        const safetyName = `antes-de-restaurar-${timestamp()}-${randomUUID()}`;
+        // Nothing in the active collection changes until every streamed entry is verified.
+        const restored = await readBackupFile(source, staging);
+        let oldState: AppState | undefined;
         try {
-          await atomicWrite(
-            path.join(this.backupsDirectory, `${safetyName}.zip`),
-            await this.backupBuffer(oldState),
-          );
+          oldState = await this.loadUnlocked();
         } catch (error) {
-          if (!isMissing(error)) throw error;
-          const available: Material[] = [];
-          for (const material of oldState.materials) {
-            try {
-              await fs.access(
-                managedPath(this.materialsDirectory, material.storedName),
-              );
-              available.push(material);
-            } catch (missingError) {
-              if (!isMissing(missingError)) throw missingError;
-            }
-          }
-          await atomicWrite(
-            path.join(
-              this.backupsDirectory,
-              `${safetyName}-indice-original.json`,
-            ),
-            JSON.stringify(oldState, null, 2),
-          );
-          await atomicWrite(
-            path.join(
-              this.backupsDirectory,
-              `${safetyName}-anexos-disponiveis.zip`,
-            ),
-            await this.backupBuffer({ ...oldState, materials: available }),
-          );
-          this.recoveryNotice = `Alguns anexos da coleção anterior já estavam ausentes. Preservamos o índice original e todos os arquivos disponíveis em ${this.backupsDirectory}. O backup selecionado foi restaurado.`;
+          if (!(error instanceof DataRecoveryError)) throw error;
         }
-      } else {
-        for (const file of [this.stateFile, this.previousFile]) {
+        if (oldState) {
+          const safetyName = `antes-de-restaurar-${timestamp()}-${randomUUID()}`;
           try {
-            await fs.copyFile(
-              file,
-              path.join(
-                this.backupsDirectory,
-                `${path.basename(file)}-preservado-${timestamp()}-${randomUUID()}`,
-              ),
-              constants.COPYFILE_EXCL,
+            await this.backupFile(
+              oldState,
+              path.join(this.backupsDirectory, `${safetyName}.zip`),
             );
           } catch (error) {
             if (!isMissing(error)) throw error;
+            const available: Material[] = [];
+            for (const material of oldState.materials) {
+              try {
+                await fs.access(
+                  managedPath(this.materialsDirectory, material.storedName),
+                );
+                available.push(material);
+              } catch (missingError) {
+                if (!isMissing(missingError)) throw missingError;
+              }
+            }
+            await atomicWrite(
+              path.join(
+                this.backupsDirectory,
+                `${safetyName}-indice-original.json`,
+              ),
+              JSON.stringify(oldState, null, 2),
+            );
+            await this.backupFile(
+              { ...oldState, materials: available },
+              path.join(
+                this.backupsDirectory,
+                `${safetyName}-anexos-disponiveis.zip`,
+              ),
+            );
+            this.recoveryNotice = `Alguns anexos da coleção anterior já estavam ausentes. Preservamos o índice original e todos os arquivos disponíveis em ${this.backupsDirectory}. O backup selecionado foi restaurado.`;
+          }
+        } else {
+          for (const file of [this.stateFile, this.previousFile]) {
+            try {
+              await fs.copyFile(
+                file,
+                path.join(
+                  this.backupsDirectory,
+                  `${path.basename(file)}-preservado-${timestamp()}-${randomUUID()}`,
+                ),
+                constants.COPYFILE_EXCL,
+              );
+            } catch (error) {
+              if (!isMissing(error)) throw error;
+            }
           }
         }
-      }
-      const createdFiles: string[] = [];
-      try {
-        for (const material of restored.state.materials) {
-          const originalName = material.storedName;
-          const data = restored.materials.get(originalName)!;
-          const storedName = `${randomUUID()}.${materialExtension(originalName)}`;
-          const destination = managedPath(this.materialsDirectory, storedName);
-          await fs.writeFile(destination, data, { flag: "wx", mode: 0o600 });
-          createdFiles.push(destination);
-          material.storedName = storedName;
+        const createdFiles: string[] = [];
+        try {
+          for (const material of restored.state.materials) {
+            const originalName = material.storedName;
+            const storedName = `${randomUUID()}.${materialExtension(originalName)}`;
+            const destination = managedPath(
+              this.materialsDirectory,
+              storedName,
+            );
+            await fs.copyFile(
+              restored.materials.get(originalName)!,
+              destination,
+              constants.COPYFILE_EXCL,
+            );
+            createdFiles.push(destination);
+            material.storedName = storedName;
+          }
+          return await this.commit(restored.state);
+        } catch (error) {
+          await Promise.all(
+            createdFiles.map((file) => fs.rm(file, { force: true })),
+          );
+          throw error;
         }
-        return await this.commit(restored.state);
-      } catch (error) {
-        await Promise.all(
-          createdFiles.map((file) => fs.rm(file, { force: true })),
-        );
-        throw error;
+      } finally {
+        if (
+          path.dirname(path.resolve(staging)).toLowerCase() !==
+            this.directory.toLowerCase() ||
+          !path.basename(staging).startsWith(".restore-")
+        )
+          throw new Error("Pasta temporária fora do diretório de dados.");
+        await fs.rm(staging, { recursive: true, force: true });
       }
     });
   }
@@ -526,12 +565,16 @@ function readEntry(entry: AdmZip.IZipEntry, maximum: number): Buffer {
   return data;
 }
 
+/** Small-buffer compatibility reader. Desktop restoration uses readBackupFile. */
 export function readBackup(data: Buffer): {
   state: AppState;
   materials: Map<string, Buffer>;
 } {
-  if (data.length > MAX_BACKUP_BYTES)
-    throw new Error("O backup excede o limite de 1 GB.");
+  const bufferLimit = 100 * 1024 * 1024;
+  if (data.length > bufferLimit)
+    throw new Error(
+      "Use a restauração de arquivo para backups maiores que 100 MB.",
+    );
   let zip: AdmZip;
   try {
     zip = new AdmZip(data);
@@ -554,11 +597,13 @@ export function readBackup(data: Buffer): {
       throw new Error("Pasta inválida no backup.");
     total += entry.header.size;
     if (
-      total > MAX_BACKUP_BYTES ||
+      total > bufferLimit ||
       !Number.isSafeInteger(total) ||
       entry.header.size < 0
     )
-      throw new Error("O backup descompactado excede 1 GB.");
+      throw new Error(
+        "Use a restauração de arquivo para backups maiores que 100 MB.",
+      );
     entriesByName.set(entry.entryName, entry);
   }
   const manifestEntry = entriesByName.get("manifest.json");
@@ -602,7 +647,12 @@ export function readBackup(data: Buffer): {
       throw new Error("O backup está sem um dos arquivos.");
     const payload = readEntry(
       entry,
-      expected.path === "state.json" ? MAX_STATE_BYTES : MAX_MATERIAL_BYTES,
+      expected.path === "state.json"
+        ? MAX_STATE_BYTES
+        : Math.min(
+            bufferLimit,
+            materialLimit(materialExtension(expected.path)),
+          ),
     );
     if (payload.length !== expected.size || digest(payload) !== expected.sha256)
       throw new Error("A integridade do backup não pôde ser confirmada.");

@@ -252,7 +252,7 @@ export function SubjectSelect({
         {state.subjects.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name}
-            {s.track === "faculdade" ? " · Mauá" : ""}
+            {` · ${state.programs.find((program) => program.id === s.programId)?.name || "Outros estudos"}`}
           </option>
         ))}
       </select>

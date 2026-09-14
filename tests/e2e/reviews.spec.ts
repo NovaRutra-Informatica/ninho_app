@@ -37,11 +37,9 @@ test("cartão pode ser criado, consultado, sinalizado, pausado, editado e exclu�
   await page
     .getByRole("textbox", { name: "Buscar nos cartões…" })
     .fill(question);
-  const panel = page
-    .getByRole("article")
-    .filter({
-      has: page.getByRole("heading", { name: question, exact: true }),
-    });
+  const panel = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: question, exact: true }),
+  });
   await panel.getByText("Ver resposta", { exact: true }).click();
   await expect(panel).toContainText(answer);
   expect(

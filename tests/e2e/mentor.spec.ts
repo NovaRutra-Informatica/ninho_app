@@ -1,6 +1,6 @@
 import { test, expect } from "./fixtures";
 
-test("Íris distingue falta de histórico, responde no contexto e não inventa progresso", async ({
+test("Íris distingue falta de histórico, filtra diagnósticos e não inventa progresso", async ({
   ninho,
 }) => {
   const { page } = ninho;
@@ -15,33 +15,11 @@ test("Íris distingue falta de histórico, responde no contexto e não inventa p
   const insight = page.getByTestId(`mentor-insight-${literature.id}`);
   await expect(insight).toContainText("Ainda sem evidência");
   await expect(insight).toContainText("Isso não mede domínio da matéria.");
-  await expect(
-    page.getByRole("button", { name: "Enviar pergunta à Íris" }),
-  ).toBeDisabled();
-  await page.getByLabel("Pergunte à Íris").fill("   ");
-  await expect(
-    page.getByRole("button", { name: "Enviar pergunta à Íris" }),
-  ).toBeDisabled();
-  await page
-    .getByRole("button", { name: "O que estudar hoje?", exact: true })
-    .click();
-  const log = page.getByRole("log", { name: "Conversa com a Íris" });
-  await expect(log.getByRole("article")).toHaveCount(3);
-  await expect(log).toContainText("O que estudar hoje?");
   expect(await ninho.state()).toEqual(before);
   await page.getByTestId("mentor-subject-filter").selectOption(literature.id);
-  await page
-    .getByLabel("Pergunte à Íris")
-    .fill("Onde preciso melhorar em Literatura?");
-  await page.getByLabel("Pergunte à Íris").press("Enter");
-  await expect(log.getByRole("article")).toHaveCount(5);
-  await expect(log.getByRole("article").last()).toContainText("Literatura");
-  await expect(page.getByLabel("Pergunte à Íris")).toHaveValue("");
-  await page
-    .getByRole("button", { name: "Limpar conversa com a Íris" })
-    .click();
-  await expect(log.getByRole("article")).toHaveCount(1);
-  await expect(page.getByLabel("Pergunte à Íris")).toBeFocused();
+  await expect(
+    page.getByTestId("ai-chat").locator(".ai-context"),
+  ).toContainText("Literatura");
   await page
     .getByRole("combobox", { name: "Filtrar sinais do estudo" })
     .selectOption("outdated");
@@ -86,17 +64,6 @@ test("uma fonte sinalizada vira atenção explicada e abre as revisões da maté
   await page.getByTestId("mentor-subject-filter").selectOption(literature.id);
   const insight = page.getByTestId(`mentor-insight-${literature.id}`);
   await expect(insight).toContainText("Conferir fonte");
-  await page
-    .getByRole("button", {
-      name: "O que pode estar desatualizado?",
-      exact: true,
-    })
-    .click();
-  const reply = page
-    .getByRole("log", { name: "Conversa com a Íris" })
-    .getByRole("article")
-    .last();
-  await expect(reply).toContainText(/fonte|marcad|sinaliz/i);
   const snapshot = await ninho.state();
   await insight
     .getByRole("button", { name: "Abrir revisões de Literatura", exact: true })

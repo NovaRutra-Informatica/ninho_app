@@ -1,8 +1,25 @@
 import path from "node:path";
 
 export const MAX_MATERIAL_BYTES = 100 * 1024 * 1024;
+export const MAX_MEDIA_BYTES = 2 * 1024 * 1024 * 1024;
+export const MEDIA_EXTENSIONS = [
+  "mp4",
+  "webm",
+  "mov",
+  "mkv",
+  "mp3",
+  "wav",
+  "ogg",
+  "m4a",
+  "aac",
+  "flac",
+] as const;
+export const isMedia = (extension: string) =>
+  (MEDIA_EXTENSIONS as readonly string[]).includes(extension);
+export const materialLimit = (extension: string) =>
+  isMedia(extension) ? MAX_MEDIA_BYTES : MAX_MATERIAL_BYTES;
 export const MAX_STATE_BYTES = 32 * 1024 * 1024;
-export const MAX_BACKUP_BYTES = 1024 * 1024 * 1024;
+export const MAX_BACKUP_BYTES = 20 * 1024 * 1024 * 1024;
 export const MAX_BACKUP_ENTRIES = 5002;
 export const MATERIAL_EXTENSIONS = [
   "pdf",
@@ -15,6 +32,7 @@ export const MATERIAL_EXTENSIONS = [
   "docx",
   "pptx",
   "xlsx",
+  ...MEDIA_EXTENSIONS,
 ] as const;
 export type MaterialExtension = (typeof MATERIAL_EXTENSIONS)[number];
 
@@ -22,7 +40,7 @@ export function materialExtension(name: string): MaterialExtension {
   const extension = path.extname(name).slice(1).toLowerCase();
   if (!MATERIAL_EXTENSIONS.includes(extension as MaterialExtension)) {
     throw new Error(
-      "Formato não aceito. Escolha PDF, imagem (PNG, JPG ou WebP), TXT, Markdown, DOCX, PPTX ou XLSX.",
+      "Formato não aceito. Escolha PDF, imagem, TXT, Markdown, documento Office, vídeo (MP4, WebM, MOV, MKV) ou áudio (MP3, WAV, OGG, M4A, AAC, FLAC).",
     );
   }
   return extension as MaterialExtension;
@@ -31,7 +49,7 @@ export function materialExtension(name: string): MaterialExtension {
 export function validateStoredName(value: unknown): string {
   if (
     typeof value !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(pdf|png|jpg|jpeg|webp|txt|md|docx|pptx|xlsx)$/i.test(
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(pdf|png|jpg|jpeg|webp|txt|md|docx|pptx|xlsx|mp4|webm|mov|mkv|mp3|wav|ogg|m4a|aac|flac)$/i.test(
       value,
     )
   ) {
@@ -110,8 +128,10 @@ export function assertFileContent(
   extension: MaterialExtension,
   data: Buffer,
 ): void {
-  if (data.length > MAX_MATERIAL_BYTES)
-    throw new Error("O arquivo excede o limite de 100 MB.");
+  if (data.length > materialLimit(extension))
+    throw new Error(
+      `O arquivo excede o limite de ${isMedia(extension) ? "2 GB" : "100 MB"}.`,
+    );
   if (
     data.subarray(0, 2).toString() === "MZ" ||
     data.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))
@@ -150,4 +170,25 @@ export function assertFileContent(
     throw new Error("O documento Office é inválido.");
   if (["txt", "md"].includes(extension) && data.subarray(0, 8192).includes(0))
     throw new Error("O texto precisa estar salvo em UTF-8.");
+  const tag = (start: number, end: number) =>
+    data.subarray(start, end).toString("ascii");
+  const validMedia =
+    !isMedia(extension) ||
+    (["mp4", "mov", "m4a"].includes(extension) &&
+      (tag(4, 8) === "ftyp" ||
+        (extension === "mov" &&
+          ["moov", "mdat", "wide"].includes(tag(4, 8))))) ||
+    (["webm", "mkv"].includes(extension) &&
+      data.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))) ||
+    (extension === "mp3" &&
+      (tag(0, 3) === "ID3" ||
+        (data[0] === 0xff && (data[1] & 0xe0) === 0xe0))) ||
+    (extension === "aac" && data[0] === 0xff && (data[1] & 0xf6) === 0xf0) ||
+    (extension === "wav" && tag(0, 4) === "RIFF" && tag(8, 12) === "WAVE") ||
+    (extension === "ogg" && tag(0, 4) === "OggS") ||
+    (extension === "flac" && tag(0, 4) === "fLaC");
+  if (!validMedia)
+    throw new Error(
+      "O conteúdo do vídeo ou áudio não corresponde ao formato informado.",
+    );
 }

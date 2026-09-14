@@ -6,6 +6,8 @@ import type {
   Exam,
   ReviewCard,
   StudyTask,
+  StudyProgram,
+  Track,
 } from "../shared/types";
 export { getMentorOverview, answerMentor } from "./mentor";
 export type {
@@ -74,10 +76,19 @@ export const settingsSchema = z
 const subjectSchema = z
   .object({
     id,
+    programId: id,
     name: label(150),
     track: z.enum(["concurso", "faculdade", "pessoal"]),
     color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   })
+  .strict();
+const programSchema = subjectSchema
+  .omit({ programId: true })
+  .extend({ description: text(5000) })
+  .strict();
+const legacySubjectSchema = subjectSchema.omit({ programId: true }).strict();
+const subjectCommandSchema = subjectSchema
+  .extend({ programId: id.optional() })
   .strict();
 const courseSchema = z
   .object({
@@ -146,7 +157,7 @@ const materialSchema = z
     storedName: z
       .string()
       .regex(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:pdf|png|jpe?g|webp|txt|md|docx|pptx|xlsx)$/i,
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:pdf|png|jpe?g|webp|txt|md|docx|pptx|xlsx|mp4|webm|mov|mkv|mp3|wav|ogg|m4a|aac|flac)$/i,
       ),
     type: z.enum([
       "pdf",
@@ -159,8 +170,18 @@ const materialSchema = z
       "docx",
       "pptx",
       "xlsx",
+      "mp4",
+      "webm",
+      "mov",
+      "mkv",
+      "mp3",
+      "wav",
+      "ogg",
+      "m4a",
+      "aac",
+      "flac",
     ]),
-    size: integer(0, 100 * 1024 * 1024),
+    size: integer(0, 2 * 1024 * 1024 * 1024),
     subjectId: optionalId,
     lessonId: optionalId,
     createdAt: timestamp,
@@ -188,8 +209,9 @@ const taskSchema = z
   .strict();
 export const stateSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     settings: settingsSchema,
+    programs: z.array(programSchema).max(500),
     subjects: z.array(subjectSchema).max(500),
     courses: z.array(courseSchema).max(5_000),
     lessons: z.array(lessonSchema).max(100_000),
@@ -200,6 +222,64 @@ export const stateSchema = z
     tasks: z.array(taskSchema).max(100_000),
   })
   .strict();
+const legacyStateSchema = stateSchema
+  .omit({ programs: true })
+  .extend({
+    version: z.literal(1),
+    subjects: z.array(legacySubjectSchema).max(500),
+  })
+  .strict();
+
+function defaultProgram(track: Track): StudyProgram {
+  if (track === "concurso")
+    return {
+      id: "senado-federal",
+      name: "Senado Federal",
+      track,
+      color: "#527969",
+      description:
+        "Analista Legislativo — Informática, Análise e Suporte a Sistemas.",
+    };
+  if (track === "faculdade")
+    return {
+      id: "maua",
+      name: "Mauá",
+      track,
+      color: "#738cba",
+      description: "Ciência da Computação · Instituto Mauá de Tecnologia.",
+    };
+  return {
+    id: "outros",
+    name: "Outros estudos",
+    track,
+    color: "#a87659",
+    description: "Seus conteúdos e objetivos pessoais.",
+  };
+}
+
+/** Upgrade only the known v1 shape; unknown versions and malformed backups remain errors. */
+export function migrateState(input: unknown): unknown {
+  if (
+    !input ||
+    typeof input !== "object" ||
+    !("version" in input) ||
+    input.version !== 1
+  )
+    return input;
+  const legacy = legacyStateSchema.parse(input);
+  const programs = [defaultProgram("concurso"), defaultProgram("faculdade")];
+  if (legacy.subjects.some((subject) => subject.track === "pessoal"))
+    programs.push(defaultProgram("pessoal"));
+  return {
+    ...legacy,
+    version: 2,
+    programs,
+    subjects: legacy.subjects.map((subject) => ({
+      ...subject,
+      programId: defaultProgram(subject.track).id,
+    })),
+  };
+}
 
 const commandSchema = z.discriminatedUnion("type", [
   z
@@ -209,7 +289,10 @@ const commandSchema = z.discriminatedUnion("type", [
     })
     .strict(),
   z
-    .object({ type: z.literal("subject.save"), subject: subjectSchema })
+    .object({ type: z.literal("subject.save"), subject: subjectCommandSchema })
+    .strict(),
+  z
+    .object({ type: z.literal("program.save"), program: programSchema })
     .strict(),
   z.object({ type: z.literal("course.save"), course: courseSchema }).strict(),
   z
@@ -269,8 +352,9 @@ const commandSchema = z.discriminatedUnion("type", [
 
 /** Validate both shape and referential integrity; returns a detached, safe data object. */
 export function validateState(input: unknown): AppState {
-  const state = stateSchema.parse(input);
+  const state = stateSchema.parse(migrateState(input));
   for (const collection of [
+    state.programs,
     state.subjects,
     state.courses,
     state.lessons,
@@ -284,6 +368,13 @@ export function validateState(input: unknown): AppState {
       throw new Error("Há identificadores duplicados.");
   }
   const subjects = new Set(state.subjects.map((item) => item.id));
+  const programs = new Map(state.programs.map((item) => [item.id, item]));
+  for (const subject of state.subjects) {
+    const program = programs.get(subject.programId);
+    if (!program) throw new Error("O curso desta matéria não existe.");
+    if (subject.track !== program.track)
+      throw new Error("O objetivo da matéria deve corresponder ao seu curso.");
+  }
   const courses = new Map(state.courses.map((item) => [item.id, item]));
   const lessons = new Map(state.lessons.map((item) => [item.id, item]));
   const checkSubject = (subjectId: string) => {
@@ -307,6 +398,22 @@ export function validateState(input: unknown): AppState {
   state.cards.forEach(checkLesson);
   state.materials.forEach(checkLesson);
   state.materials.forEach((item) => {
+    if (
+      ![
+        "mp4",
+        "webm",
+        "mov",
+        "mkv",
+        "mp3",
+        "wav",
+        "ogg",
+        "m4a",
+        "aac",
+        "flac",
+      ].includes(item.type) &&
+      item.size > 100 * 1024 * 1024
+    )
+      throw new Error("Este arquivo ultrapassa o limite de 100 MiB.");
     if (item.storedName.split(".").at(-1)?.toLowerCase() !== item.type)
       throw new Error("O tipo do arquivo não corresponde à extensão.");
   });
@@ -357,6 +464,35 @@ export function createInitialState(now: Date = new Date()): AppState {
       dueAt: instant,
     })),
   };
+}
+
+export interface LessonStudyStats {
+  durationMinutes: number;
+  sessionCount: number;
+}
+
+/** Recorded time only. Zero-minute review events never imply study duration. */
+export function getLessonStudyStats(
+  state: AppState,
+): Record<string, LessonStudyStats> {
+  const totals: Record<string, LessonStudyStats> = Object.create(null);
+  const subjects = new Map(
+    state.lessons.map((lesson) => [lesson.id, lesson.subjectId]),
+  );
+  for (const lesson of state.lessons)
+    totals[lesson.id] = { durationMinutes: 0, sessionCount: 0 };
+  for (const session of state.sessions) {
+    if (
+      !session.lessonId ||
+      session.durationMinutes <= 0 ||
+      subjects.get(session.lessonId) !== session.subjectId
+    )
+      continue;
+    const total = totals[session.lessonId];
+    total.durationMinutes += session.durationMinutes;
+    total.sessionCount++;
+  }
+  return totals;
 }
 
 function requireItem<T extends { id: string }>(
@@ -428,9 +564,52 @@ export function applyCommand(
     case "settings.update":
       next = { ...state, settings: { ...state.settings, ...command.patch } };
       break;
-    case "subject.save":
-      next = { ...state, subjects: upsert(state.subjects, command.subject) };
+    case "program.save":
+      next = {
+        ...state,
+        programs: upsert(state.programs, command.program),
+        subjects: state.subjects.map((subject) =>
+          subject.programId === command.program.id
+            ? { ...subject, track: command.program.track }
+            : subject,
+        ),
+      };
       break;
+    case "subject.save": {
+      const previous = state.subjects.find(
+        (subject) => subject.id === command.subject.id,
+      );
+      let programId =
+        command.subject.programId ??
+        (previous?.track === command.subject.track
+          ? previous.programId
+          : undefined);
+      let programs = state.programs;
+      if (!programId) {
+        const preferred = defaultProgram(command.subject.track);
+        programId =
+          programs.find(
+            (program) =>
+              program.id === preferred.id &&
+              program.track === command.subject.track,
+          )?.id ??
+          programs.find((program) => program.track === command.subject.track)
+            ?.id;
+        if (!programId) {
+          programId = preferred.id;
+          let suffix = 2;
+          while (programs.some((program) => program.id === programId))
+            programId = `${preferred.id}-${suffix++}`;
+          programs = [...programs, { ...preferred, id: programId }];
+        }
+      }
+      next = {
+        ...state,
+        programs,
+        subjects: upsert(state.subjects, { ...command.subject, programId }),
+      };
+      break;
+    }
     case "course.save":
       next = { ...state, courses: upsert(state.courses, command.course) };
       break;

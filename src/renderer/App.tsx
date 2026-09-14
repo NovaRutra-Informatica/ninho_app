@@ -26,6 +26,7 @@ import { useApp } from "./store";
 import { Empty, Owl, prettyDate, ProgressBar, timeText } from "./ui";
 import { ExamForm, TaskForm } from "./forms";
 import { FocusModal, useFocus } from "./Focus";
+import { transitionPage, scrollBehavior } from "./motion";
 import Studies from "./Studies";
 import Reviews from "./Reviews";
 import Materials from "./Materials";
@@ -95,14 +96,19 @@ function Dashboard({
           </h1>
           <p>Que tal dar mais um passo por você hoje?</p>
         </div>
-        <span className="date-pill">
+        <button
+          className="date-pill"
+          aria-label="Abrir calendário"
+          data-testid="today-calendar"
+          onClick={() => go("agenda")}
+        >
           <CalendarDays size={16} />
           {prettyDate(localDate(), {
             weekday: "short",
             day: "numeric",
             month: "long",
           })}
-        </span>
+        </button>
       </div>
       <div className="hero">
         <div className="hero-copy">
@@ -546,6 +552,7 @@ export default function App() {
   const [page, setPage] = useState<Page>("today");
   const [selected, setSelected] = useState("");
   const [selectedLesson, setSelectedLesson] = useState("");
+  const [studiesVisit, setStudiesVisit] = useState(0);
   const [reviewRoute, setReviewRoute] =
     useState<ReviewRoute>(defaultReviewRoute);
   const [focusOpen, setFocusOpen] = useState(false);
@@ -571,18 +578,23 @@ export default function App() {
     );
   }, [state.settings.reducedMotion]);
   const go = (target: Page) => {
-    setSelected("");
-    setSelectedLesson("");
-    setReviewRoute(defaultReviewRoute);
-    setPage(target);
-    document.querySelector(".main-content")?.scrollTo(0, 0);
+    transitionPage(() => {
+      if (target === "studies") setStudiesVisit((visit) => visit + 1);
+      setSelected("");
+      setSelectedLesson("");
+      setReviewRoute(defaultReviewRoute);
+      setPage(target);
+      document.querySelector(".main-content")?.scrollTo(0, 0);
+    }, state.settings.reducedMotion);
   };
   const openLesson = (lesson: Lesson) => {
-    setReviewRoute(defaultReviewRoute);
-    setSelected(lesson.subjectId);
-    setSelectedLesson(lesson.id);
-    setPage("studies");
-    document.querySelector(".main-content")?.scrollTo(0, 0);
+    transitionPage(() => {
+      setReviewRoute(defaultReviewRoute);
+      setSelected(lesson.subjectId);
+      setSelectedLesson(lesson.id);
+      setPage("studies");
+      document.querySelector(".main-content")?.scrollTo(0, 0);
+    }, state.settings.reducedMotion);
   };
   const openMentorFocus = (subjectId?: string) => {
     if (subjectId !== undefined) focus.setSubject(subjectId);
@@ -593,22 +605,24 @@ export default function App() {
     subjectId?: string,
     action?: MentorAction,
   ) => {
-    setSelected(subjectId || "");
-    setSelectedLesson(target === "studies" ? action?.lessonId || "" : "");
-    const source = Boolean(action?.id.startsWith("source:")),
-      relearn = Boolean(action?.id.startsWith("relearn:")),
-      sources = action?.id === "sources";
-    setReviewRoute(
-      target === "reviews"
-        ? {
-            mode: source || relearn || sources ? "library" : "home",
-            filter: source ? "outdated" : relearn ? "relearn" : "all",
-            card: action?.cardId || "",
-          }
-        : defaultReviewRoute,
-    );
-    setPage(target);
-    document.querySelector(".main-content")?.scrollTo(0, 0);
+    transitionPage(() => {
+      setSelected(subjectId || "");
+      setSelectedLesson(target === "studies" ? action?.lessonId || "" : "");
+      const source = Boolean(action?.id.startsWith("source:")),
+        relearn = Boolean(action?.id.startsWith("relearn:")),
+        sources = action?.id === "sources";
+      setReviewRoute(
+        target === "reviews"
+          ? {
+              mode: source || relearn || sources ? "library" : "home",
+              filter: source ? "outdated" : relearn ? "relearn" : "all",
+              card: action?.cardId || "",
+            }
+          : defaultReviewRoute,
+      );
+      setPage(target);
+      document.querySelector(".main-content")?.scrollTo(0, 0);
+    }, state.settings.reducedMotion);
   };
   useEffect(() => {
     if (page !== "studies" || !selectedLesson) return;
@@ -619,7 +633,7 @@ export default function App() {
         )
         ?.scrollIntoView({
           block: "center",
-          behavior: state.settings.reducedMotion ? "instant" : "smooth",
+          behavior: scrollBehavior(state.settings.reducedMotion),
         }),
     );
     return () => cancelAnimationFrame(frame);
@@ -714,10 +728,25 @@ export default function App() {
             />
           ) : page === "studies" ? (
             <Studies
-              key={selectedLesson}
+              key={`${studiesVisit}:${selectedLesson}`}
               selected={selected}
               setSelected={setSelected}
               selectedLesson={selectedLesson}
+              openLessonFocus={(lesson) => {
+                focus.selectLesson(lesson.id);
+                setFocusOpen(true);
+              }}
+              activeFocus={
+                focus.timer.mode === "focus" && focus.hasProgress
+                  ? {
+                      lessonId: focus.timer.lessonId,
+                      running: focus.timer.running,
+                    }
+                  : undefined
+              }
+              renderMaterials={(subjectId) => (
+                <Materials key={subjectId} subjectId={subjectId} embedded />
+              )}
             />
           ) : page === "reviews" ? (
             <Reviews

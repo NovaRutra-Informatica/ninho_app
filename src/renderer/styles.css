@@ -9,7 +9,7 @@
     --surface: #fff;
     --surface-soft: #f8f9f5;
     --ink: #193c35;
-    --muted: #7b8983;
+    --muted: #50675e;
     --line: #e6eae3;
     --green: #235e50;
     --mint: #e9f2e8;
@@ -22,7 +22,7 @@
     --surface: #22342c;
     --surface-soft: #293d32;
     --ink: #e6eddf;
-    --muted: #a2b4a7;
+    --muted: #b1c2b5;
     --line: #3a4d40;
     --green: #a3d5b7;
     --mint: #344a37;
@@ -35,6 +35,8 @@
   }
   body {
     margin: 0;
+    font-size: 15px;
+    line-height: 1.55;
   }
   button,
   input,
@@ -2557,12 +2559,12 @@
     margin: 12px 0;
   }
   .mentor-intro p {
-    font-size: 12px;
+    font-size: 14px;
     color: var(--ink);
     line-height: 1.8;
   }
   .mentor-intro small {
-    font-size: 10px;
+    font-size: 14px;
     line-height: 1.7;
     display: block;
     margin-top: 13px;
@@ -2580,7 +2582,7 @@
     width: 330px;
   }
   .mentor-context {
-    font-size: 10px;
+    font-size: 14px;
     color: var(--muted);
     display: flex;
     gap: 6px;
@@ -2612,10 +2614,10 @@
     grid-column: 1/-1;
   }
   .mentor-stat > span {
-    font-size: 11px;
+    font-size: 14px;
   }
   .mentor-stat > small {
-    font-size: 8px;
+    font-size: 14px;
     margin-top: -3px;
   }
   .mentor-stat.selected {
@@ -2670,7 +2672,7 @@
     height: 23px;
     border-radius: 50%;
     background: var(--mint);
-    font-size: 10px;
+    font-size: 14px;
     display: grid;
     place-items: center;
     flex-shrink: 0;
@@ -2680,12 +2682,12 @@
   }
   .mentor-action-copy strong {
     display: block;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
   }
   .mentor-action-copy small {
     display: block;
-    font-size: 9px;
+    font-size: 14px;
     line-height: 1.6;
     margin-top: 5px;
   }
@@ -2700,11 +2702,11 @@
     margin-top: 21px;
   }
   .mentor-diagnosis > .field {
-    font-size: 10px;
+    font-size: 14px;
     margin-top: 19px;
   }
   .mentor-diagnosis > .field > select {
-    font-size: 11px;
+    font-size: 14px;
   }
   .mentor-subject {
     padding: 24px 0;
@@ -2721,10 +2723,10 @@
     align-items: center;
   }
   .mentor-subject-heading h3 {
-    font-size: 13px;
+    font-size: 14px;
   }
   .mentor-status {
-    font-size: 8px;
+    font-size: 14px;
     background: var(--mint);
     padding: 6px 8px;
     color: var(--green);
@@ -2738,7 +2740,7 @@
     flex-wrap: wrap;
     margin: 13px 0;
     color: var(--muted);
-    font-size: 8px;
+    font-size: 14px;
   }
   .mentor-evidence > span {
     display: flex;
@@ -2746,7 +2748,7 @@
     align-items: center;
   }
   .mentor-coverage .row-between {
-    font-size: 9px;
+    font-size: 14px;
     margin-bottom: 8px;
   }
   .mentor-coverage strong {
@@ -2754,7 +2756,7 @@
   }
   .mentor-coverage small {
     display: block;
-    font-size: 8px;
+    font-size: 14px;
     margin-top: 6px;
   }
   .mentor-coverage .progress-track {
@@ -2764,7 +2766,7 @@
     padding: 0 0 0 15px;
     margin: 14px 0;
     color: var(--muted);
-    font-size: 9px;
+    font-size: 14px;
     line-height: 1.8;
   }
   .mentor-signals li + li {
@@ -2778,7 +2780,7 @@
     margin-top: 16px;
   }
   .mentor-subject-footer details {
-    font-size: 8px;
+    font-size: 14px;
     color: var(--muted);
     flex: 1;
   }
@@ -2790,14 +2792,14 @@
     line-height: 1.7;
   }
   .mentor-subject-footer .link-button {
-    font-size: 9px;
+    font-size: 14px;
     padding: 0;
   }
   .mentor-exam {
     display: flex;
     align-items: center;
     gap: 7px;
-    font-size: 9px;
+    font-size: 14px;
     background: var(--surface-soft);
     padding: 9px;
     border-radius: 7px;
@@ -2815,11 +2817,11 @@
     margin-top: 3px;
   }
   .mentor-limits strong {
-    font-size: 10px;
+    font-size: 14px;
     font-weight: 500;
   }
   .mentor-limits ul {
-    font-size: 9px;
+    font-size: 14px;
     padding-left: 14px;
     line-height: 1.8;
     margin-top: 9px;
@@ -2855,7 +2857,7 @@
     letter-spacing: 0;
   }
   .mentor-chat-heading small {
-    font-size: 8px;
+    font-size: 14px;
     margin-top: 5px;
     display: block;
   }
@@ -2869,7 +2871,7 @@
     padding: 7px 9px;
     border: 1px solid var(--line);
     border-radius: 7px;
-    font-size: 9px;
+    font-size: 14px;
     color: var(--green);
     text-align: left;
   }
@@ -2894,7 +2896,7 @@
     animation: page-in 0.2s;
   }
   .mentor-message > strong {
-    font-size: 10px;
+    font-size: 14px;
     display: flex;
     align-items: center;
     gap: 5px;
@@ -2902,14 +2904,14 @@
     margin-bottom: 9px;
   }
   .mentor-message p {
-    font-size: 11px;
+    font-size: 14px;
     line-height: 1.8;
     color: var(--ink);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
   .mentor-message > small {
-    font-size: 8px;
+    font-size: 14px;
     display: block;
     margin-top: 9px;
   }
@@ -2926,7 +2928,7 @@
     margin-top: 13px;
   }
   .mentor-message-actions .link-button {
-    font-size: 9px;
+    font-size: 14px;
     line-height: 1.6;
   }
   .mentor-compose {
@@ -2934,7 +2936,7 @@
     border-top: 1px solid var(--line);
   }
   .mentor-compose > label {
-    font-size: 10px;
+    font-size: 14px;
     font-weight: 500;
   }
   .mentor-compose > div {
@@ -2944,7 +2946,7 @@
     margin-top: 8px;
   }
   .mentor-compose textarea {
-    font-size: 11px;
+    font-size: 14px;
     resize: none;
     padding: 10px;
     line-height: 1.5;
@@ -2955,7 +2957,7 @@
     min-height: 39px;
   }
   .mentor-compose > small {
-    font-size: 8px;
+    font-size: 14px;
     line-height: 1.7;
     display: block;
     margin-top: 10px;
@@ -3086,4 +3088,927 @@
 }
 .lesson-row:has(.lesson-body) {
   scroll-margin-top: 25px;
+}
+
+.date-pill {
+  cursor: pointer;
+  transition:
+    background 180ms,
+    transform 180ms;
+}
+.date-pill:hover {
+  background: var(--mint);
+  transform: translateY(-1px);
+}
+.subject-tabs {
+  margin-bottom: 24px;
+  width: fit-content;
+}
+.subject-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.subject-materials .page-heading {
+  margin-bottom: 22px;
+}
+.subject-materials .page-heading h2 {
+  margin: 0 0 8px;
+}
+.lesson-materials-anchor {
+  margin-top: 24px;
+  scroll-margin-top: 24px;
+  min-width: 0;
+}
+.lesson-materials {
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  min-width: 0;
+}
+.lesson-materials .page-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.lesson-materials .page-heading > div {
+  flex: 1 1 250px;
+}
+.lesson-materials .page-heading h2 {
+  font-size: 22px;
+}
+.lesson-materials .button,
+.lesson-materials-button {
+  font-size: 14px;
+  white-space: normal;
+  min-height: 40px;
+}
+.lesson-materials .toolbar {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.lesson-materials .toolbar > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.lesson-materials .materials-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  gap: 16px;
+}
+.lesson-materials .upload-zone {
+  padding: 24px;
+}
+.lesson-materials .upload-art {
+  margin-bottom: 14px;
+}
+.lesson-materials .upload-zone h2 {
+  font-size: 22px;
+}
+.lesson-materials .file-thumbnail {
+  height: 105px;
+}
+.materials-page .page-heading p,
+.materials-page .material-name,
+.materials-page .material-card > small,
+.materials-page .material-card footer span,
+.materials-page .upload-zone p,
+.materials-page .upload-zone small,
+.materials-page .library-note {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.materials-page .material-card > small {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.materials-page .library-note {
+  align-items: flex-start;
+  margin: 20px 0 0;
+}
+.materials-page .library-note > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.preview-layout {
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+.preview-layout > aside {
+  min-width: 0;
+}
+fieldset.material-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.material-fields .field,
+.material-fields .field select,
+.material-fields .field textarea,
+.material-fields .field > small {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.material-fields select {
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+.material-fields .field > small {
+  color: var(--muted);
+}
+@media (max-width: 1200px) {
+  .lesson-top {
+    flex-wrap: wrap;
+  }
+  .lesson-top > .lesson-title {
+    min-width: min(260px, 70%);
+  }
+}
+.program-card .progress-track {
+  margin-top: 14px;
+}
+.ai-chat {
+  padding: 24px;
+  min-width: 0;
+  position: sticky;
+  top: 24px;
+}
+.ai-chat .panel-heading {
+  display: block;
+}
+.ai-chat h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 8px 0;
+}
+.ai-chat .panel-heading p {
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 14px;
+}
+.ai-chat .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 20px;
+  padding: 6px 10px;
+  background: var(--mint);
+  font-size: 14px;
+  color: var(--green);
+}
+.ai-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  margin-top: 20px;
+}
+.ai-toolbar label {
+  display: grid;
+  gap: 7px;
+  flex: 1 1 100%;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+}
+.ai-toolbar select {
+  width: 100%;
+  min-width: 0;
+  font-size: 14px;
+}
+.ai-toolbar .button {
+  font-size: 14px;
+  padding: 8px 10px;
+}
+.ai-status {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.ai-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+  margin: 18px 0;
+  padding-bottom: 17px;
+  border-bottom: 1px solid var(--line);
+}
+.ai-context small {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.ai-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  max-height: 470px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+}
+.ai-welcome {
+  background: var(--mint);
+  padding: 14px 17px;
+  border-radius: 16px 16px 16px 4px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.ai-welcome p:first-child {
+  font-weight: 600;
+}
+.ai-message {
+  padding: 14px 16px;
+  background: var(--mint);
+  border-radius: 16px 16px 16px 4px;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  animation: page-in 220ms ease both;
+}
+.ai-message strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.ai-message.user {
+  margin-left: 24px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 16px 16px 4px 16px;
+}
+.ai-thinking {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+}
+.ai-thinking svg {
+  flex-shrink: 0;
+  animation: pulse 1.5s infinite;
+}
+.ai-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 13px 0;
+}
+.ai-suggestions .button {
+  font-size: 14px;
+  padding: 8px 10px;
+  text-align: left;
+}
+.ai-composer {
+  margin: 19px 0 9px;
+}
+.ai-composer textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 92px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ai-composer > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.ai-composer small {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  flex: 1 1 140px;
+}
+.ai-composer .button {
+  font-size: 14px;
+}
+.ai-error {
+  border-radius: 10px;
+  background: #9b414115;
+  color: var(--danger, #a84646);
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ai-chat > .button {
+  font-size: 14px;
+  margin-top: 8px;
+}
+@media (max-width: 1250px) {
+  .ai-chat {
+    position: static;
+  }
+}
+
+/* Comfortable reading and short, interruptible motion throughout the study flow. */
+:root {
+  --motion-quick: 220ms;
+  --motion-content: 340ms;
+  --motion-page: 420ms;
+  --ease-settle: cubic-bezier(0.2, 0.75, 0.25, 1);
+  view-transition-name: none;
+}
+.main-content {
+  view-transition-name: ninho-content;
+}
+button,
+select,
+input,
+textarea {
+  transition-duration: var(--motion-quick);
+  transition-timing-function: var(--ease-settle);
+}
+.page-enter {
+  animation: page-in var(--motion-page) var(--ease-settle) backwards;
+}
+.subject-grid,
+.course-list,
+.subject-materials,
+.review-welcome,
+.review-session,
+.review-card,
+.cards-library,
+.answer-reveal,
+.lesson-body,
+.course-tools,
+.ai-message {
+  animation: page-in var(--motion-content) var(--ease-settle) backwards;
+}
+.subject-grid > .subject-card,
+.materials-grid > .material-card,
+.mentor-subject-list > .mentor-subject {
+  animation: soft-arrive var(--motion-content) var(--ease-settle) backwards;
+}
+.subject-grid > :nth-child(2),
+.materials-grid > :nth-child(2) {
+  animation-duration: 380ms;
+}
+.subject-grid > :nth-child(n + 3),
+.materials-grid > :nth-child(n + 3) {
+  animation-duration: var(--motion-page);
+}
+.subject-card,
+.material-card,
+.mentor-stat,
+.mentor-action,
+.lesson-row,
+.review-card,
+.nav-item,
+.segmented button {
+  transition:
+    background-color var(--motion-quick) var(--ease-settle),
+    border-color var(--motion-quick) var(--ease-settle),
+    box-shadow var(--motion-content) var(--ease-settle),
+    color var(--motion-quick) var(--ease-settle),
+    transform var(--motion-quick) var(--ease-settle);
+}
+.nav-item.active {
+  box-shadow: inset 3px 0 0 var(--green);
+}
+.nav-item > svg,
+.button > svg,
+.link-button > svg,
+.course-panel > header > svg,
+.lesson-top .icon-button > svg {
+  transition: transform var(--motion-content) var(--ease-settle);
+}
+.nav-item:not(:disabled):hover > svg {
+  transform: translateY(-1px) rotate(-5deg);
+}
+.button:not(:disabled):hover > svg:last-child,
+.link-button:not(:disabled):hover > svg:last-child {
+  transform: translateX(2px);
+}
+.button:not(:disabled):active,
+.subject-card:not(:disabled):active,
+.mentor-action:not(:disabled):active {
+  transform: translateY(1px) scale(0.99);
+}
+.lesson-row.expanded {
+  background: color-mix(in srgb, var(--mint) 32%, var(--surface));
+}
+.modal-backdrop {
+  animation: fade-in var(--motion-quick) ease-out;
+}
+.modal {
+  animation: modal-in var(--motion-content) var(--ease-settle) backwards;
+}
+.progress-track > span {
+  transition: width var(--motion-page) var(--ease-settle);
+}
+.bar-fill {
+  transition: height var(--motion-page) var(--ease-settle);
+}
+.mentor-page {
+  font-size: 15px;
+  line-height: 1.65;
+}
+.mentor-page p,
+.mentor-page .microcopy,
+.mentor-page .mentor-action-copy small,
+.mentor-page .mentor-coverage small,
+.mentor-page .mentor-signals,
+.mentor-page .mentor-subject-footer details,
+.mentor-page .mentor-limits ul,
+.mentor-page .mentor-intro small,
+.mentor-page .mentor-stat > small {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.mentor-page .eyebrow {
+  font-size: 12px;
+  letter-spacing: 1.15px;
+  line-height: 1.5;
+}
+.mentor-page .badge,
+.mentor-page .mentor-status,
+.mentor-page .mentor-action-index {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.mentor-page .field {
+  font-size: 13px;
+}
+.mentor-page .field select,
+.mentor-page .button,
+.mentor-page .link-button {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.mentor-page .button,
+.mentor-page .link-button {
+  white-space: normal;
+}
+.mentor-intro {
+  padding: 28px 32px;
+}
+.mentor-intro h2 {
+  font-size: 26px;
+  line-height: 1.3;
+}
+.mentor-intro p {
+  color: var(--ink);
+  font-size: 15px;
+}
+.mentor-toolbar {
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px 24px;
+}
+.mentor-toolbar > .field {
+  width: min(100%, 460px);
+  max-width: 460px;
+}
+.mentor-context {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.mentor-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.mentor-stat {
+  padding: 20px;
+  gap: 9px 12px;
+  align-content: start;
+}
+.mentor-stat > strong {
+  font-size: 30px;
+  line-height: 1.2;
+}
+.mentor-stat > span {
+  font-size: 15px;
+  font-weight: 600;
+}
+.mentor-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 26px;
+}
+.mentor-main {
+  grid-column: 1 / -1;
+}
+.mentor-plan,
+.mentor-diagnosis {
+  padding: 26px;
+  min-width: 0;
+}
+.mentor-plan h2,
+.mentor-diagnosis h2 {
+  font-size: 24px;
+  line-height: 1.3;
+}
+.mentor-plan > .section-title,
+.mentor-diagnosis > .section-title {
+  gap: 18px;
+  align-items: start;
+}
+.mentor-diagnosis > .section-title {
+  flex-wrap: wrap;
+}
+.mentor-action {
+  padding: 18px 8px;
+  border-radius: 10px;
+  gap: 12px;
+}
+.mentor-action:hover {
+  background: var(--surface-soft);
+}
+.mentor-action-index {
+  width: 30px;
+  height: 30px;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.mentor-action-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mentor-action-copy strong {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.mentor-action > svg {
+  width: 18px;
+  color: var(--green);
+}
+.mentor-diagnosis {
+  margin-top: 0;
+}
+.mentor-subject-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 30px;
+}
+.mentor-subject {
+  min-width: 0;
+  padding: 26px 0;
+  overflow-wrap: anywhere;
+}
+.mentor-subject-heading {
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 10px;
+}
+.mentor-subject-heading h3 {
+  font-size: 18px;
+  line-height: 1.45;
+  flex: 1 1 180px;
+}
+.mentor-status {
+  max-width: 100%;
+  flex-shrink: 1;
+  padding: 6px 10px;
+}
+.mentor-evidence {
+  font-size: 14px;
+  line-height: 1.65;
+  gap: 8px 16px;
+  margin: 17px 0;
+}
+.mentor-evidence > span {
+  gap: 7px;
+}
+.mentor-coverage .row-between {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.mentor-coverage .progress-track {
+  height: 7px;
+}
+.mentor-coverage small {
+  margin-top: 10px;
+}
+.mentor-subject-footer {
+  flex-direction: column;
+  gap: 16px;
+}
+.mentor-subject-footer summary {
+  color: var(--ink);
+  line-height: 1.6;
+}
+.mentor-subject-footer details[open] > ul {
+  animation: page-in var(--motion-content) var(--ease-settle) backwards;
+}
+.mentor-subject-footer .link-button {
+  padding: 5px 0;
+}
+.mentor-exam {
+  font-size: 14px;
+  line-height: 1.65;
+  padding: 12px;
+}
+.mentor-limits strong {
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.ai-chat {
+  padding: 26px;
+  position: static;
+  font-size: 15px;
+  line-height: 1.7;
+}
+.ai-chat h2 {
+  font-size: 24px;
+  line-height: 1.3;
+}
+.ai-chat .panel-heading p,
+.ai-status,
+.ai-context small,
+.ai-composer small {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.ai-status {
+  margin-top: 12px;
+}
+.ai-chat .pill,
+.ai-toolbar label {
+  font-size: 13px;
+}
+.ai-chat .pill {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.ai-toolbar select,
+.ai-composer textarea,
+.ai-message,
+.ai-welcome,
+.ai-welcome p {
+  font-size: 15px;
+  line-height: 1.75;
+}
+.ai-toolbar select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-message > strong {
+  font-size: 14px;
+}
+.ai-message > div strong {
+  display: inline;
+  font-size: inherit;
+  margin: 0;
+}
+.ai-message code {
+  font-size: 0.95em;
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+.ai-messages {
+  max-height: 420px;
+}
+.ai-message,
+.ai-welcome {
+  padding: 17px 18px;
+}
+.ai-error {
+  font-size: 14px;
+  color: #963535;
+}
+:root[data-theme="dark"] .ai-error {
+  color: #f2b1a5;
+}
+.lesson-focus-button {
+  font-size: 14px;
+  white-space: normal;
+  min-height: 40px;
+}
+.lesson-time-summary,
+.focus-context-note {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.lesson-time-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 12px;
+  margin-top: 8px;
+}
+.lesson-focus-active {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 20px;
+  background: var(--mint);
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+fieldset.focus-context {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.focus-context .field {
+  font-size: 14px;
+}
+.focus-context select {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.focus-context-note {
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.focus-actions {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.focus-actions .button {
+  font-size: 14px;
+  white-space: normal;
+  min-height: 44px;
+}
+.focus-actions .icon-button {
+  flex: 0 0 40px;
+}
+.focus-tabs > button,
+.modal:has(.focus-context) > .microcopy,
+.modal:has(.focus-context) > header p,
+.timer-dial > small {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.timer-dial > small {
+  max-width: 190px;
+  text-align: center;
+}
+@media (min-width: 800px) {
+  .modal:has(.focus-context) {
+    width: 800px;
+    max-width: 100%;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-areas:
+      "heading heading"
+      "tabs tabs"
+      "dial context"
+      "dial note"
+      "caption caption"
+      "actions actions";
+    column-gap: 24px;
+    row-gap: 8px;
+    padding: 22px;
+  }
+  .modal:has(.focus-context) > header {
+    grid-area: heading;
+    margin: 0;
+  }
+  .modal:has(.focus-context) > .focus-tabs {
+    grid-area: tabs;
+  }
+  .modal:has(.focus-context) > .timer-dial {
+    grid-area: dial;
+    align-self: center;
+    width: 196px;
+    height: 196px;
+    border-width: 8px;
+    outline-offset: 5px;
+    margin: 8px auto;
+  }
+  .modal:has(.focus-context) .timer-dial > span {
+    font-size: 52px;
+    line-height: 1.1;
+    letter-spacing: -2px;
+  }
+  .modal:has(.focus-context) .timer-dial > small {
+    max-width: 154px;
+    margin-top: 8px;
+  }
+  .modal:has(.focus-context) > .focus-context {
+    grid-area: context;
+    align-self: end;
+  }
+  .focus-context .field + .field {
+    margin-top: 12px;
+  }
+  .focus-context select {
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
+  .modal:has(.focus-context) > .focus-context-note {
+    grid-area: note;
+    margin: 0;
+  }
+  .modal:has(.focus-context) > .microcopy {
+    grid-area: caption;
+    margin: 4px 0 0;
+  }
+  .modal:has(.focus-context) > .focus-actions {
+    grid-area: actions;
+    margin: 4px 0 0;
+  }
+}
+@media (max-width: 1320px) {
+  .mentor-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mentor-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mentor-layout > .ai-chat {
+    grid-row: 2;
+  }
+}
+@media (max-width: 1200px) {
+  .mentor-subject-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mentor-intro,
+  .mentor-plan,
+  .mentor-diagnosis,
+  .ai-chat {
+    padding: 24px;
+  }
+  .mentor-intro h2 {
+    font-size: 24px;
+  }
+  .mentor-intro > .owl {
+    width: 110px;
+  }
+  .lesson-top {
+    flex-wrap: wrap;
+  }
+  .lesson-top > .lesson-focus-button {
+    margin-left: 35px;
+  }
+}
+@keyframes soft-arrive {
+  from {
+    opacity: 0.3;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-group(ninho-content),
+::view-transition-old(ninho-content),
+::view-transition-new(ninho-content) {
+  pointer-events: none;
+  animation-duration: var(--motion-content);
+  animation-timing-function: var(--ease-settle);
+}
+::view-transition-old(ninho-content) {
+  animation-name: content-depart;
+}
+::view-transition-new(ninho-content) {
+  animation-name: page-in;
+}
+@keyframes content-depart {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+:root[data-reduced-motion="true"]::view-transition-group(*),
+:root[data-reduced-motion="true"]::view-transition-old(*),
+:root[data-reduced-motion="true"]::view-transition-new(*) {
+  animation: none !important;
+}
+:root[data-reduced-motion="true"] .nav-item:hover > svg,
+:root[data-reduced-motion="true"] .button:hover > svg,
+:root[data-reduced-motion="true"] .link-button:hover > svg,
+:root[data-reduced-motion="true"] .subject-card:hover,
+:root[data-reduced-motion="true"] .mentor-stat:hover,
+:root[data-reduced-motion="true"] .stat-card:hover,
+:root[data-reduced-motion="true"] .date-pill:hover,
+:root[data-reduced-motion="true"] .rating:hover,
+:root[data-reduced-motion="true"] button:active {
+  transform: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+  .nav-item:hover > svg,
+  .button:hover > svg,
+  .link-button:hover > svg,
+  .subject-card:hover,
+  .mentor-stat:hover,
+  .stat-card:hover,
+  .date-pill:hover,
+  .rating:hover,
+  button:active {
+    transform: none !important;
+  }
 }

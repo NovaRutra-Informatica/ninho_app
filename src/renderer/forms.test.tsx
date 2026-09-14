@@ -152,14 +152,15 @@ describe("editing catalog entries through real domain commands", () => {
       "Sistemas Distibuídos",
     );
     change("Nome da matéria", "Sistemas Distribuídos");
-    change("Objetivo", "pessoal");
+    change("Curso", "senado-federal");
     change("Cor", "#aabbcc");
     await save("Salvar matéria");
     expect(
       get().subjects.find((subject) => subject.id === "maua-test"),
     ).toMatchObject({
       name: "Sistemas Distribuídos",
-      track: "pessoal",
+      track: "concurso",
+      programId: "senado-federal",
       color: "#aabbcc",
     });
     expect(get().subjects).toHaveLength(initial.subjects.length);
@@ -178,16 +179,16 @@ describe("editing catalog entries through real domain commands", () => {
       <CourseForm subjectId={course.subjectId} course={course} close={close} />,
       initial,
     );
-    expect(screen.getByLabelText("Nome do curso")).toHaveValue(
+    expect(screen.getByLabelText("Nome do módulo")).toHaveValue(
       "Curso com erro",
     );
-    expect(screen.getByLabelText("Link do curso")).toHaveValue(
+    expect(screen.getByLabelText("Link do módulo")).toHaveValue(
       "https://maua.br/curso",
     );
-    change("Nome do curso", "Sistemas Distribuídos — último semestre");
-    change("Instituição ou plataforma", "Instituto Mauá de Tecnologia");
-    change("Link do curso", "https://maua.br/curso-corrigido");
-    await save("Salvar curso");
+    change("Nome do módulo", "Sistemas Distribuídos — último semestre");
+    change("Instituição ou fonte", "Instituto Mauá de Tecnologia");
+    change("Link do módulo", "https://maua.br/curso-corrigido");
+    await save("Salvar módulo");
     expect(
       get().courses.find((course) => course.id === "course-test"),
     ).toMatchObject({
@@ -256,7 +257,7 @@ describe("editing catalog entries through real domain commands", () => {
         kind === "subject"
           ? "Nome da matéria"
           : kind === "course"
-            ? "Nome do curso"
+            ? "Nome do módulo"
             : "Nome da aula",
         "Rascunho não salvo",
       );
@@ -280,14 +281,14 @@ describe("editing catalog entries through real domain commands", () => {
       state,
       api,
     );
-    change("Nome do curso", "Título tentado");
-    await save("Salvar curso");
+    change("Nome do módulo", "Título tentado");
+    await save("Salvar módulo");
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Sem espaço para salvar",
     );
     expect(close).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Salvar curso" })).toBeEnabled();
-    expect(screen.queryByText("Curso atualizado.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Salvar módulo" })).toBeEnabled();
+    expect(screen.queryByText("Módulo atualizado.")).not.toBeInTheDocument();
   });
 
   it("keeps the original creation labels and still creates a new lesson", async () => {
@@ -307,10 +308,10 @@ describe("editing catalog entries through real domain commands", () => {
       state,
     );
     expect(
-      screen.getByRole("dialog", { name: "Adicionar curso" }),
+      screen.getByRole("dialog", { name: "Adicionar módulo" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Adicionar curso" }),
+      screen.getByRole("button", { name: "Adicionar módulo" }),
     ).toBeInTheDocument();
     cleanup();
     const { get } = await mount(
@@ -368,10 +369,10 @@ describe("Studies editor entry points", () => {
       screen.getByRole("heading", { name: "Sistemas Distribuídos", level: 1 }),
     ).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: "Editar curso Curso com erro" }),
+      screen.getByRole("button", { name: "Editar módulo Curso com erro" }),
     );
-    change("Nome do curso", "Curso corrigido");
-    await save("Salvar curso");
+    change("Nome do módulo", "Curso corrigido");
+    await save("Salvar módulo");
     expect(
       screen.getByRole("heading", { name: "Curso corrigido" }),
     ).toBeInTheDocument();

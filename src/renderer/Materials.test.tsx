@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyCommand, createInitialState } from "../domain";
@@ -63,7 +64,7 @@ function native(initial = fixture()) {
       name: id,
       data: `Texto de ${id}`,
     })),
-    openMaterial: vi.fn(),
+    openMaterial: vi.fn(async () => undefined),
     openExternal: vi.fn(),
     exportBackup: vi.fn(),
     restoreBackup: vi.fn(),
@@ -71,14 +72,20 @@ function native(initial = fixture()) {
   };
   return { api, get: () => state };
 }
-async function mount(api: NativeApi) {
+async function mount(api: NativeApi, subjectId?: string, lessonId?: string) {
+  let view!: ReturnType<typeof render>;
   await act(async () => {
-    render(
+    view = render(
       <AppProvider nativeApi={api}>
-        <Materials />
+        <Materials
+          subjectId={subjectId}
+          lessonId={lessonId}
+          embedded={Boolean(subjectId)}
+        />
       </AppProvider>,
     );
   });
+  return view;
 }
 afterEach(() => {
   cleanup();
@@ -199,5 +206,596 @@ describe("biblioteca com operações assíncronas", () => {
       screen.getByRole("button", { name: "Adicionar arquivos" }),
     ).toBeEnabled();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+});
+
+describe("materiais dentro da matéria", () => {
+  it("isola arquivos e vincula a importação diretamente à matéria aberta", async () => {
+    const state = fixture();
+    state.materials[1].subjectId = "literatura";
+    const { api } = native(state);
+    await mount(api, "banco-de-dados");
+    expect(
+      screen.getByRole("heading", { name: "Materiais desta matéria" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("material-row-arquivo-a")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("material-row-arquivo-b"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Filtrar matéria")).not.toBeInTheDocument();
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Adicionar arquivos" }),
+      ),
+    );
+    expect(api.importMaterials).toHaveBeenCalledWith({
+      subjectId: "banco-de-dados",
+    });
+  });
+  it("oferece importação na matéria vazia mesmo que outras matérias tenham arquivos", async () => {
+    const { api } = native();
+    await mount(api, "literatura");
+    expect(
+      screen.getByText("Seu próximo conhecimento começa aqui."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("material-row-arquivo-a"),
+    ).not.toBeInTheDocument();
+  });
+  it("filtra vídeos e áudios e oferece o player do Windows sem carregar dados na prévia", async () => {
+    const state = fixture();
+    state.materials[0] = {
+      ...state.materials[0],
+      name: "Aula.mp4",
+      type: "mp4",
+    };
+    state.materials[1] = {
+      ...state.materials[1],
+      name: "Resumo.mp3",
+      type: "mp3",
+    };
+    const { api } = native(state);
+    api.previewMaterial = vi.fn(async () => ({
+      kind: "external" as const,
+      name: "Aula.mp4",
+    }));
+    await mount(api, "banco-de-dados");
+    fireEvent.change(screen.getByLabelText("Tipo de arquivo"), {
+      target: { value: "video" },
+    });
+    expect(screen.getByTestId("material-row-arquivo-a")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("material-row-arquivo-b"),
+    ).not.toBeInTheDocument();
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Abrir Aula.mp4" })),
+    );
+    await act(async () =>
+      fireEvent.click(
+        screen.getAllByRole("button", { name: "Abrir no Windows" })[0],
+      ),
+    );
+    expect(api.openMaterial).toHaveBeenCalledWith("arquivo-a");
+    fireEvent.click(screen.getByRole("button", { name: "Fechar janela" }));
+    fireEvent.change(screen.getByLabelText("Tipo de arquivo"), {
+      target: { value: "audio" },
+    });
+    expect(screen.getByTestId("material-row-arquivo-b")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("material-row-arquivo-a"),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("gravações de material em andamento", () => {
+  it.each(["fechar", "trocar"])(
+    "não restaura um modal antigo após %s de material",
+    async (action) => {
+      const initial = fixture();
+      const { api } = native(initial);
+      let complete!: (state: AppState) => void;
+      api.dispatch = vi.fn(
+        () =>
+          new Promise<AppState>((resolve) => {
+            complete = resolve;
+          }),
+      );
+      await mount(api);
+      await act(async () =>
+        fireEvent.click(
+          screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+        ),
+      );
+      fireEvent.change(screen.getByLabelText("Anotações do material"), {
+        target: { value: "Salvando anotação" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Salvar material" }));
+      fireEvent.click(screen.getByRole("button", { name: "Fechar janela" }));
+      if (action === "trocar")
+        await act(async () =>
+          fireEvent.click(
+            screen.getByRole("button", { name: "Abrir Arquivo B.txt" }),
+          ),
+        );
+      const updated = applyCommand(initial, {
+        type: "material.update",
+        id: "arquivo-a",
+        patch: { notes: "Salvando anotação" },
+      });
+      await act(async () => complete(updated));
+      if (action === "fechar")
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      else {
+        expect(
+          screen.getByRole("dialog", { name: "Arquivo B.txt" }),
+        ).toBeInTheDocument();
+        expect(screen.getByText("Texto de arquivo-b")).toBeInTheDocument();
+        expect(
+          screen.queryByRole("dialog", { name: "Arquivo A.txt" }),
+        ).not.toBeInTheDocument();
+      }
+    },
+  );
+  it("diferencia matérias homônimas usando o curso real, inclusive outra faculdade", async () => {
+    const state = fixture();
+    state.programs.push({
+      id: "curso-extra",
+      name: "Segunda faculdade",
+      track: "faculdade",
+      color: "#66895a",
+      description: "",
+    });
+    state.subjects.push({
+      id: "outra-literatura",
+      name: "Literatura",
+      programId: "curso-extra",
+      track: "faculdade",
+      color: "#66895a",
+    });
+    const { api } = native(state);
+    await mount(api);
+    expect(
+      screen.getByRole("option", { name: "Literatura · Senado Federal" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Literatura · Segunda faculdade" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("materiais vinculados à aula", () => {
+  it("mostra somente arquivos da aula exata, sem misturar matéria, outras aulas ou arquivos soltos", async () => {
+    const initial = fixture();
+    const first = initial.materials[0];
+    const otherLesson = initial.lessons.find(
+      (lesson) =>
+        lesson.subjectId === first.subjectId && lesson.id !== first.lessonId,
+    )!;
+    initial.materials.push(
+      {
+        ...first,
+        id: "outra-aula",
+        name: "Outra aula.txt",
+        lessonId: otherLesson.id,
+      },
+      {
+        ...first,
+        id: "outra-materia",
+        name: "Literatura.txt",
+        subjectId: "literatura",
+        lessonId: "",
+      },
+    );
+    const { api } = native(initial);
+    await mount(api, first.subjectId, first.lessonId);
+    expect(
+      screen.getByRole("heading", { name: "Materiais desta aula" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("material-row-arquivo-a")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("material-row-arquivo-b"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("material-row-outra-aula"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("material-row-outra-materia"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Filtrar matéria")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Tipo de arquivo"), {
+      target: { value: "pdf" },
+    });
+    expect(screen.getByText("Nada encontrado.")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Nenhum material nesta aula ainda."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("importa um arquivo com os dois vínculos e o mostra imediatamente na aula", async () => {
+    const initial = fixture();
+    const target = initial.lessons.find(
+      (lesson) =>
+        lesson.subjectId === "banco-de-dados" &&
+        lesson.id !== initial.materials[0].lessonId,
+    )!;
+    const { api } = native(initial);
+    api.importMaterials = vi.fn(async (context) => ({
+      ...initial,
+      materials: [
+        ...initial.materials,
+        {
+          ...initial.materials[0],
+          id: "novo-na-aula",
+          name: "Notas da aula.txt",
+          subjectId: context!.subjectId!,
+          lessonId: context!.lessonId!,
+        },
+      ],
+    }));
+    await mount(api, target.subjectId, target.id);
+    expect(
+      screen.getByText("Nenhum material nesta aula ainda."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("material-row-arquivo-a"),
+    ).not.toBeInTheDocument();
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Adicionar arquivos à aula" }),
+      ),
+    );
+    expect(api.importMaterials).toHaveBeenCalledWith({
+      subjectId: target.subjectId,
+      lessonId: target.id,
+    });
+    expect(screen.getByTestId("material-row-novo-na-aula")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Nenhum material nesta aula ainda."),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each(["", "aula-inexistente"])(
+    "um escopo inválido %j não abre a biblioteca global nem importa sem vínculo",
+    async (id) => {
+      const { api } = native();
+      await mount(api, "banco-de-dados", id);
+      expect(
+        screen.getByText("Esta aula não está disponível."),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("material-row-arquivo-a"),
+      ).not.toBeInTheDocument();
+      const button = screen.getByRole("button", {
+        name: "Adicionar arquivos à aula",
+      });
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(api.importMaterials).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejeita escopo com aula de outra matéria", async () => {
+    const initial = fixture();
+    const { api } = native(initial);
+    await mount(api, "literatura", initial.materials[0].lessonId);
+    expect(
+      screen.getByText("Esta aula não está disponível."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Adicionar arquivos à aula" }),
+    ).toBeDisabled();
+  });
+
+  it("associa um arquivo já importado à aula e permite desassociar sem remover o arquivo", async () => {
+    const initial = fixture();
+    const target = initial.lessons.find(
+      (lesson) => lesson.subjectId === "banco-de-dados",
+    )!;
+    const { api, get } = native(initial);
+    await mount(api, target.subjectId);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo B.txt" }),
+      ),
+    );
+    const select = screen.getByLabelText("Aula do material");
+    expect(select).toHaveValue("");
+    fireEvent.change(select, { target: { value: target.id } });
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Salvar material" })),
+    );
+    expect(
+      get().materials.find((material) => material.id === "arquivo-b")?.lessonId,
+    ).toBe(target.id);
+    fireEvent.change(select, { target: { value: "" } });
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Salvar material" })),
+    );
+    expect(get().materials).toHaveLength(2);
+    expect(
+      get().materials.find((material) => material.id === "arquivo-b"),
+    ).toMatchObject({ subjectId: target.subjectId, lessonId: "" });
+  });
+
+  it("move o arquivo entre aulas e o retira da lista da aula anterior", async () => {
+    const initial = fixture();
+    const old = initial.materials[0];
+    const target = initial.lessons.find(
+      (lesson) =>
+        lesson.subjectId === old.subjectId && lesson.id !== old.lessonId,
+    )!;
+    const { api, get } = native(initial);
+    await mount(api, old.subjectId, old.lessonId);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    expect(screen.getByLabelText("Aula do material")).toHaveValue(old.lessonId);
+    fireEvent.change(screen.getByLabelText("Aula do material"), {
+      target: { value: target.id },
+    });
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Salvar material" })),
+    );
+    expect(get().materials[0].lessonId).toBe(target.id);
+    expect(
+      screen.queryByTestId("material-row-arquivo-a"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Nenhum material nesta aula ainda."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Aula do material")).toHaveValue(target.id);
+  });
+
+  it("limpa a aula imediatamente ao mudar de matéria, inclusive ao voltar sem salvar", async () => {
+    const { api, get } = native();
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    const subject = screen.getByLabelText("Matéria");
+    const lesson = screen.getByLabelText("Aula do material");
+    expect(lesson).not.toHaveValue("");
+    fireEvent.change(subject, { target: { value: "literatura" } });
+    expect(lesson).toHaveValue("");
+    fireEvent.change(subject, { target: { value: "banco-de-dados" } });
+    expect(lesson).toHaveValue("");
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Salvar material" })),
+    );
+    expect(get().materials[0]).toMatchObject({
+      subjectId: "banco-de-dados",
+      lessonId: "",
+    });
+    fireEvent.change(subject, { target: { value: "" } });
+    expect(lesson).toHaveValue("");
+    expect(lesson).toBeDisabled();
+  });
+
+  it("distingue aulas homônimas pelo módulo e só oferece aulas da matéria selecionada", async () => {
+    const initial = fixture();
+    const original = initial.lessons.find(
+      (lesson) => lesson.id === initial.materials[0].lessonId,
+    )!;
+    const course = initial.courses.find(
+      (item) => item.id === original.courseId,
+    )!;
+    initial.courses.push({
+      ...course,
+      id: "modulo-extra",
+      title: "Exercícios de Banco de Dados",
+    });
+    initial.lessons.push({
+      ...original,
+      id: "aula-homonima",
+      courseId: "modulo-extra",
+    });
+    const { api } = native(initial);
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    const options = within(screen.getByLabelText("Aula do material"));
+    expect(
+      options.getByRole("option", {
+        name: `${original.title} · ${course.title}`,
+      }),
+    ).toHaveValue(original.id);
+    expect(
+      options.getByRole("option", {
+        name: `${original.title} · Exercícios de Banco de Dados`,
+      }),
+    ).toHaveValue("aula-homonima");
+    const offered = options
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+    expect(offered).not.toContain(
+      initial.lessons.find((lesson) => lesson.subjectId === "literatura")!.id,
+    );
+  });
+
+  it("não deixa uma prévia pendente vazar quando o escopo de aula muda", async () => {
+    const initial = fixture();
+    const old = initial.materials[0];
+    const target = initial.lessons.find(
+      (lesson) =>
+        lesson.subjectId === old.subjectId && lesson.id !== old.lessonId,
+    )!;
+    const { api } = native(initial);
+    let release!: (value: MaterialPreview) => void;
+    api.previewMaterial = vi.fn(
+      () =>
+        new Promise<MaterialPreview>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const view = await mount(api, old.subjectId, old.lessonId);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+    );
+    await act(async () =>
+      view.rerender(
+        <AppProvider nativeApi={api}>
+          <Materials
+            embedded
+            subjectId={target.subjectId}
+            lessonId={target.id}
+          />
+        </AppProvider>,
+      ),
+    );
+    await act(async () =>
+      release({
+        kind: "text",
+        name: old.name,
+        data: "Conteúdo da aula anterior",
+      }),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Conteúdo da aula anterior"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId(`lesson-materials-${target.id}`),
+    ).toBeInTheDocument();
+  });
+
+  it("serializa cliques no mesmo salvamento e mantém os campos enquanto ocorre a gravação", async () => {
+    const initial = fixture();
+    const { api } = native(initial);
+    let release!: (value: AppState) => void;
+    api.dispatch = vi.fn(
+      () =>
+        new Promise<AppState>((resolve) => {
+          release = resolve;
+        }),
+    );
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    const button = screen.getByRole("button", { name: "Salvar material" });
+    await act(async () => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
+    expect(api.dispatch).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Salvando…" })).toBeDisabled();
+    expect(screen.getByLabelText("Matéria")).toBeDisabled();
+    expect(screen.getByLabelText("Aula do material")).toBeDisabled();
+    await act(async () => release(initial));
+    expect(
+      screen.getByRole("button", { name: "Salvar material" }),
+    ).toBeEnabled();
+    expect(screen.getByLabelText("Aula do material")).toBeEnabled();
+  });
+
+  it("um erro ao salvar mantém o novo vínculo para tentar novamente", async () => {
+    const initial = fixture();
+    const target = initial.lessons.find(
+      (lesson) =>
+        lesson.subjectId === initial.materials[0].subjectId &&
+        lesson.id !== initial.materials[0].lessonId,
+    )!;
+    const { api, get } = native(initial);
+    api.dispatch = vi.fn(async () => {
+      throw new Error("Não foi possível gravar agora.");
+    });
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Aula do material"), {
+      target: { value: target.id },
+    });
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Salvar material" })),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Não foi possível gravar agora.",
+    );
+    expect(screen.getByLabelText("Aula do material")).toHaveValue(target.id);
+    expect(
+      screen.getByRole("button", { name: "Salvar material" }),
+    ).toBeEnabled();
+    expect(get().materials[0].lessonId).toBe(initial.materials[0].lessonId);
+  });
+
+  it("aguarda a movimentação antes de reabrir o mesmo material, sem ressuscitar o vínculo anterior", async () => {
+    const initial = fixture();
+    const old = initial.materials[0];
+    const target = initial.lessons.find(
+      (lesson) =>
+        lesson.subjectId === old.subjectId && lesson.id !== old.lessonId,
+    )!;
+    const { api } = native(initial);
+    let release!: (value: AppState) => void;
+    api.dispatch = vi.fn(
+      () =>
+        new Promise<AppState>((resolve) => {
+          release = resolve;
+        }),
+    );
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Aula do material"), {
+      target: { value: target.id },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar material" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fechar janela" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Este material está sendo salvo.",
+    );
+    expect(api.previewMaterial).toHaveBeenCalledTimes(1);
+    const moved = applyCommand(initial, {
+      type: "material.update",
+      id: old.id,
+      patch: { lessonId: target.id },
+    });
+    await act(async () => release(moved));
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    expect(screen.getByLabelText("Aula do material")).toHaveValue(target.id);
+  });
+
+  it("uma edição de anotações não reenvia vínculos inalterados de um snapshot anterior", async () => {
+    const { api } = native();
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Anotações do material"), {
+      target: { value: "Revisar normalização." },
+    });
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Salvar material" })),
+    );
+    expect(api.dispatch).toHaveBeenCalledWith({
+      type: "material.update",
+      id: "arquivo-a",
+      patch: { notes: "Revisar normalização." },
+    });
   });
 });

@@ -39,7 +39,10 @@ for filename in ['cartoes_banco_dados_aula00.json', 'cartoes_literatura_aula00.j
         lesson = next(lesson for lesson in lessons if lesson['url'].split('/videos/')[0] == card['source_url'].split('/videos/')[0])
         cards.append(dict(id=f'seed:{subject_id}:{i + 1:03}', subjectId=subject_id, lessonId=lesson['id'], question=text(card['pergunta']), answer=text(card['resposta_html']), source='Estratégia Concursos · ' + card['fonte'] + ' Conferido em ' + card['conferido_em'] + '. Cartão de estudo autoral baseado no material.', sourceUrl=card['source_url'], dueAt='2026-09-14T12:00:00.000Z', lastReviewedAt=None, intervalDays=0, ease=2.5, repetitions=0, lapses=0, flag='none', suspended=False, createdAt='2026-09-14T12:00:00.000Z'))
 
-state = dict(version=1, settings=dict(name='Alessandro', dailyMinutes=30, newCardsPerDay=5, focusMinutes=25, breakMinutes=5, theme='light', sound=False, reducedMotion=False), subjects=subjects, courses=courses, lessons=lessons, cards=cards, exams=[], materials=[], sessions=[], tasks=[])
+programs = [dict(id='senado-federal', name='Senado Federal', track='concurso', color='#527969', description='Analista Legislativo — Informática, Análise e Suporte a Sistemas.'), dict(id='maua', name='Mauá', track='faculdade', color='#738cba', description='Ciência da Computação · Instituto Mauá de Tecnologia.')]
+for subject in subjects:
+    subject['programId'] = 'senado-federal' if subject['track'] == 'concurso' else 'maua'
+state = dict(version=2, programs=programs, settings=dict(name='Alessandro', dailyMinutes=30, newCardsPerDay=5, focusMinutes=25, breakMinutes=5, theme='light', sound=False, reducedMotion=False), subjects=subjects, courses=courses, lessons=lessons, cards=cards, exams=[], materials=[], sessions=[], tasks=[])
 assert len(subjects) == 15 and len(courses) == 20 and len(lessons) == 271 and len(cards) == 71
 target = root / 'resources' / 'seed.json'
 target.parent.mkdir(parents=True, exist_ok=True)

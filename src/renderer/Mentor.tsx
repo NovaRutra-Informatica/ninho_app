@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -16,27 +16,15 @@ import {
   Timer,
   TrendingUp,
 } from "lucide-react";
-import { answerMentor, getMentorOverview } from "../domain";
+import { getMentorOverview } from "../domain";
 import { useApp } from "./store";
+import AiChat from "./AiChat";
 import { Empty, Owl, prettyDate, ProgressBar } from "./ui";
 
 type NavigationPage = "reviews" | "studies" | "agenda" | "progress";
 type MentorAction = ReturnType<
   typeof getMentorOverview
 >["recommendations"][number];
-type Message = {
-  id: number;
-  role: "iris" | "user";
-  text: string;
-  actions: MentorAction[];
-  context?: string;
-};
-const suggestions = [
-  "O que estudar hoje?",
-  "Onde preciso melhorar?",
-  "Esqueci algum assunto?",
-  "O que pode estar desatualizado?",
-];
 const actionIcon = {
   reviews: Brain,
   studies: BookOpen,
@@ -58,19 +46,11 @@ export default function Mentor({
 }) {
   const { state } = useApp();
   const [subjectId, setSubjectId] = useState("");
-  const [question, setQuestion] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
   const [now, setNow] = useState(() => new Date());
   const [signalFilter, setSignalFilter] = useState("all");
-  const nextMessageId = useRef(1);
-  const conversation = useRef<HTMLDivElement>(null);
-  const input = useRef<HTMLTextAreaElement>(null);
   const overview = useMemo(
     () => getMentorOverview(state, now, subjectId || undefined),
     [state, now, subjectId],
-  );
-  const selectedSubject = state.subjects.find(
-    (subject) => subject.id === subjectId,
   );
   const totals = overview.subjects.reduce(
     (total, insight) => ({
@@ -94,11 +74,6 @@ export default function Mentor({
     const timer = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(timer);
   }, []);
-  useEffect(() => {
-    if (conversation.current)
-      conversation.current.scrollTop = conversation.current.scrollHeight;
-  }, [messages]);
-
   function takeAction(action: MentorAction) {
     if (action.target === "focus") openFocus(action.subjectId);
     else onNavigate(action.target, action.subjectId, action);
@@ -127,31 +102,6 @@ export default function Mentor({
       }
     }
     onNavigate(dueCards ? "reviews" : "studies", id);
-  }
-
-  function ask(value: string) {
-    const text = value.trim().slice(0, 1000);
-    if (!text) return;
-    const reply = answerMentor(state, text, new Date(), subjectId || undefined);
-    const context = selectedSubject?.name || "Todas as matérias";
-    setMessages((previous) => [
-      ...previous.slice(-20),
-      { id: nextMessageId.current++, role: "user", text, actions: [], context },
-      {
-        id: nextMessageId.current++,
-        role: "iris",
-        text: reply.text,
-        actions: reply.actions,
-        context,
-      },
-    ]);
-    setQuestion("");
-    input.current?.focus();
-  }
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    ask(question);
   }
 
   return (
@@ -201,6 +151,7 @@ export default function Mentor({
             {state.subjects.map((subject) => (
               <option value={subject.id} key={subject.id}>
                 {subject.name}
+                {` · ${state.programs.find((program) => program.id === subject.programId)?.name || "Outros estudos"}`}
               </option>
             ))}
           </select>
@@ -260,56 +211,57 @@ export default function Mentor({
       </div>
 
       <div className="mentor-layout">
-        <div className="mentor-main">
-          <article className="panel mentor-plan">
-            <div className="section-title">
-              <div>
-                <span className="eyebrow">UMA COISA DE CADA VEZ</span>
-                <h2>Seu plano de agora</h2>
-              </div>
-              <Target size={23} />
+        <article className="panel mentor-plan">
+          <div className="section-title">
+            <div>
+              <span className="eyebrow">UMA COISA DE CADA VEZ</span>
+              <h2>Seu plano de agora</h2>
             </div>
-            <p className="microcopy">
-              Uma sugestão para começar. Você decide o ritmo.
-            </p>
-            <div className="mentor-action-list">
-              {overview.recommendations.map((action, index) => {
-                const Icon = actionIcon[action.target];
-                return (
-                  <button
-                    key={action.id}
-                    className="mentor-action"
-                    data-testid={`mentor-plan-${action.id}`}
-                    onClick={() => takeAction(action)}
-                  >
-                    <span className="mentor-action-index">{index + 1}</span>
-                    <span className="mentor-action-copy">
-                      <strong>{action.label}</strong>
-                      <small>{action.reason}</small>
-                    </span>
-                    <Icon size={18} />
-                    <ArrowRight size={16} />
-                  </button>
-                );
-              })}
-              {overview.recommendations.length === 0 && (
-                <Empty
-                  title="Espaço para um novo passo."
-                  text="Registre uma aula ou uma revisão para a Íris acompanhar seu caminho."
-                  label="Explorar meus estudos"
-                  action={() => onNavigate("studies", subjectId || undefined)}
-                />
-              )}
-            </div>
-            <button
-              className="button secondary"
-              onClick={() => openFocus(subjectId || undefined)}
-            >
-              <Timer size={17} />
-              Reservar {state.settings.focusMinutes} minutos de foco
-            </button>
-          </article>
+            <Target size={23} />
+          </div>
+          <p className="microcopy">
+            Uma sugestão para começar. Você decide o ritmo.
+          </p>
+          <div className="mentor-action-list">
+            {overview.recommendations.map((action, index) => {
+              const Icon = actionIcon[action.target];
+              return (
+                <button
+                  key={action.id}
+                  className="mentor-action"
+                  data-testid={`mentor-plan-${action.id}`}
+                  onClick={() => takeAction(action)}
+                >
+                  <span className="mentor-action-index">{index + 1}</span>
+                  <span className="mentor-action-copy">
+                    <strong>{action.label}</strong>
+                    <small>{action.reason}</small>
+                  </span>
+                  <Icon size={18} />
+                  <ArrowRight size={16} />
+                </button>
+              );
+            })}
+            {overview.recommendations.length === 0 && (
+              <Empty
+                title="Espaço para um novo passo."
+                text="Registre uma aula ou uma revisão para a Íris acompanhar seu caminho."
+                label="Explorar meus estudos"
+                action={() => onNavigate("studies", subjectId || undefined)}
+              />
+            )}
+          </div>
+          <button
+            className="button secondary"
+            onClick={() => openFocus(subjectId || undefined)}
+          >
+            <Timer size={17} />
+            Reservar {state.settings.focusMinutes} minutos de foco
+          </button>
+        </article>
 
+        <AiChat subjectId={subjectId || undefined} />
+        <div className="mentor-main">
           <article className="panel mentor-diagnosis">
             <div className="section-title">
               <div>
@@ -474,130 +426,6 @@ export default function Mentor({
             </div>
           </div>
         </div>
-        <aside className="panel mentor-chat">
-          <header className="mentor-chat-heading">
-            <span className="round-icon">
-              <MessageCircle size={22} />
-            </span>
-            <div>
-              <h2>Converse com a Íris</h2>
-              <small>Respostas a partir dos seus registros</small>
-            </div>
-            {messages.length > 0 && (
-              <button
-                className="icon-button"
-                aria-label="Limpar conversa com a Íris"
-                onClick={() => {
-                  setMessages([]);
-                  setQuestion("");
-                  input.current?.focus();
-                }}
-              >
-                <RotateCcw size={17} />
-              </button>
-            )}
-          </header>
-          <div className="mentor-suggestions" aria-label="Perguntas sugeridas">
-            {suggestions.map((suggestion) => (
-              <button key={suggestion} onClick={() => ask(suggestion)}>
-                {suggestion}
-              </button>
-            ))}
-          </div>
-          <div
-            ref={conversation}
-            className="mentor-messages"
-            role="log"
-            aria-label="Conversa com a Íris"
-            aria-live="polite"
-            aria-relevant="additions"
-          >
-            <article className="mentor-message iris">
-              <strong>
-                <Sparkles size={14} />
-                Íris
-              </strong>
-              <p>
-                Posso ajudar você a escolher o que estudar, perceber dúvidas,
-                retomar revisões e separar o que precisa de uma fonte
-                atualizada. Sobre o que vamos olhar?
-              </p>
-            </article>
-            {messages.map((message) => (
-              <article
-                className={`mentor-message ${message.role}`}
-                key={message.id}
-              >
-                <strong>
-                  {message.role === "iris" ? (
-                    <>
-                      <Sparkles size={14} />
-                      Íris
-                    </>
-                  ) : (
-                    "Você"
-                  )}
-                </strong>
-                <p>{message.text}</p>
-                {message.context && <small>{message.context}</small>}
-                {message.actions.length > 0 && (
-                  <div className="mentor-message-actions">
-                    {message.actions.map((action) => (
-                      <button
-                        className="link-button"
-                        key={action.id}
-                        onClick={() => takeAction(action)}
-                      >
-                        {action.label}
-                        <ArrowRight size={14} />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-          <form className="mentor-compose" onSubmit={submit}>
-            <label htmlFor="mentor-question">Pergunte à Íris</label>
-            <div>
-              <textarea
-                ref={input}
-                id="mentor-question"
-                value={question}
-                rows={2}
-                maxLength={1000}
-                onChange={(event) => setQuestion(event.target.value)}
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" &&
-                    !event.shiftKey &&
-                    !event.nativeEvent.isComposing
-                  ) {
-                    event.preventDefault();
-                    ask(question);
-                  }
-                }}
-                placeholder={
-                  selectedSubject
-                    ? `O que revisar em ${selectedSubject.name}?`
-                    : "Por onde posso começar hoje?"
-                }
-              />
-              <button
-                className="button primary"
-                type="submit"
-                aria-label="Enviar pergunta à Íris"
-                disabled={!question.trim()}
-              >
-                <Send size={18} />
-              </button>
-            </div>
-            <small>
-              Analisa seus registros localmente. Não lê PDFs, não consulta sites
-              e não usa IA generativa.
-            </small>
-          </form>
-        </aside>
       </div>
     </section>
   );

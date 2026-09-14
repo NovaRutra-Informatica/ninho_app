@@ -12,6 +12,10 @@ const api: NativeApi = {
   exportBackup: () => ipcRenderer.invoke("ninho:export-backup"),
   restoreBackup: () => ipcRenderer.invoke("ninho:restore-backup"),
   getPaths: () => ipcRenderer.invoke("ninho:get-paths"),
+  aiStatus: () => ipcRenderer.invoke("ninho:ai-status"),
+  aiChat: (request) => ipcRenderer.invoke("ninho:ai-chat", request),
+  aiCancel: (requestId) => ipcRenderer.invoke("ninho:ai-cancel", requestId),
+  aiUnload: () => ipcRenderer.invoke("ninho:ai-unload"),
 };
 
 contextBridge.exposeInMainWorld("ninho", Object.freeze(api));

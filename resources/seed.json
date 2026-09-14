@@ -1,5 +1,21 @@
 {
-  "version": 1,
+  "version": 2,
+  "programs": [
+    {
+      "id": "senado-federal",
+      "name": "Senado Federal",
+      "track": "concurso",
+      "color": "#527969",
+      "description": "Analista Legislativo — Informática, Análise e Suporte a Sistemas."
+    },
+    {
+      "id": "maua",
+      "name": "Mauá",
+      "track": "faculdade",
+      "color": "#738cba",
+      "description": "Ciência da Computação · Instituto Mauá de Tecnologia."
+    }
+  ],
   "settings": {
     "name": "Alessandro",
     "dailyMinutes": 30,
@@ -15,91 +31,106 @@
       "id": "banco-de-dados",
       "name": "Banco de dados",
       "track": "concurso",
-      "color": "#527969"
+      "color": "#527969",
+      "programId": "senado-federal"
     },
     {
       "id": "contratacoes-de-ti",
       "name": "Contratações de TI",
       "track": "concurso",
-      "color": "#a87659"
+      "color": "#a87659",
+      "programId": "senado-federal"
     },
     {
       "id": "desenvolvimento-de-software",
       "name": "Desenvolvimento de software",
       "track": "concurso",
-      "color": "#738cba"
+      "color": "#738cba",
+      "programId": "senado-federal"
     },
     {
       "id": "direito-administrativo",
       "name": "Direito Administrativo",
       "track": "concurso",
-      "color": "#af7f91"
+      "color": "#af7f91",
+      "programId": "senado-federal"
     },
     {
       "id": "direito-constitucional",
       "name": "Direito Constitucional",
       "track": "concurso",
-      "color": "#8b80b6"
+      "color": "#8b80b6",
+      "programId": "senado-federal"
     },
     {
       "id": "direito-digital",
       "name": "Direito Digital",
       "track": "concurso",
-      "color": "#7b9581"
+      "color": "#7b9581",
+      "programId": "senado-federal"
     },
     {
       "id": "gestao-e-governanca-de-ti",
       "name": "Gestão e Governança de TI",
       "track": "concurso",
-      "color": "#5898a1"
+      "color": "#5898a1",
+      "programId": "senado-federal"
     },
     {
       "id": "ingles",
       "name": "Inglês",
       "track": "concurso",
-      "color": "#b49a51"
+      "color": "#b49a51",
+      "programId": "senado-federal"
     },
     {
       "id": "lingua-portuguesa-e-redacao",
       "name": "Língua Portuguesa e Redação",
       "track": "concurso",
-      "color": "#7098bc"
+      "color": "#7098bc",
+      "programId": "senado-federal"
     },
     {
       "id": "literatura",
       "name": "Literatura",
       "track": "concurso",
-      "color": "#b27769"
+      "color": "#b27769",
+      "programId": "senado-federal"
     },
     {
       "id": "raciocinio-logico-matematico",
       "name": "Raciocínio Lógico Matemático",
       "track": "concurso",
-      "color": "#8d969d"
+      "color": "#8d969d",
+      "programId": "senado-federal"
     },
     {
       "id": "redes-de-computadores",
       "name": "Redes de Computadores",
       "track": "concurso",
-      "color": "#6a9d83"
+      "color": "#6a9d83",
+      "programId": "senado-federal"
     },
     {
       "id": "seguranca-da-informacao",
       "name": "Segurança da Informação",
       "track": "concurso",
-      "color": "#9d825e"
+      "color": "#9d825e",
+      "programId": "senado-federal"
     },
     {
       "id": "sistemas-operacionais",
       "name": "Sistemas Operacionais",
       "track": "concurso",
-      "color": "#8688b6"
+      "color": "#8688b6",
+      "programId": "senado-federal"
     },
     {
       "id": "ciencia-da-computacao",
       "name": "Ciência da Computação",
       "track": "faculdade",
-      "color": "#738cba"
+      "color": "#738cba",
+      "programId": "maua"
     }
   ],
   "courses": [

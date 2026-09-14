@@ -43,11 +43,9 @@ test("agenda cria, edita, conclui, reabre e remove provas e tarefas", async ({
     (item) => item.title === "Prova de Sistemas Distribuídos — E2E",
   )!;
   expect(exam.date).toBe(tomorrow);
-  const examPanel = page
-    .getByRole("article")
-    .filter({
-      has: page.getByRole("heading", { name: exam.title, exact: true }),
-    });
+  const examPanel = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: exam.title, exact: true }),
+  });
   await expect(examPanel).toContainText("18:30");
   await examPanel.getByRole("button", { name: "Editar prova" }).click();
   modal = page.getByRole("dialog", { name: "Editar prova" });

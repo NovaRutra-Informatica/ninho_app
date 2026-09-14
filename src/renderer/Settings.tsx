@@ -232,14 +232,14 @@ export default function Settings() {
             <strong>Armazenado neste computador</strong>
             <p>{paths.data || "Consultando pasta…"}</p>
             <small>
-              Sem conta e sem envio de arquivos a um servidor. Para usar em
-              outro computador, exporte e restaure seu backup.
+              Sem conta e sem envio de arquivos à nuvem. Para usar em outro
+              computador, exporte e restaure seu backup.
             </small>
           </div>
         </div>
       </article>
       <p className="version-line">
-        Ninho 1.0 · Feito para o seu próximo passo · Windows 11
+        Ninho 1.1.2 · Feito para o seu próximo passo · Windows 11
       </p>
       {restore && (
         <Confirm

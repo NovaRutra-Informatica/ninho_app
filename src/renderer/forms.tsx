@@ -7,6 +7,7 @@ import type {
   Lesson,
   ReviewCard,
   Subject,
+  StudyProgram,
   StudyTask,
   Track,
 } from "../shared/types";
@@ -297,27 +298,134 @@ export function TaskForm({
     </Modal>
   );
 }
-export function SubjectForm({
-  subject,
+export function ProgramForm({
+  program,
   close,
 }: {
-  subject?: Subject;
+  program?: StudyProgram;
   close: () => void;
 }) {
   const { act, notify } = useApp();
   const [busy, setBusy] = useState(false);
+  const [data, setData] = useState<StudyProgram>(
+    program || {
+      id: uid(),
+      name: "",
+      track: "concurso",
+      color: "#729a84",
+      description: "",
+    },
+  );
+  return (
+    <Modal
+      title={program ? "Editar curso" : "Novo curso"}
+      subtitle="Um concurso, sua faculdade ou outro caminho de aprendizado."
+      close={close}
+    >
+      <form
+        onSubmit={async (event) => {
+          event.preventDefault();
+          setBusy(true);
+          try {
+            await act({ type: "program.save", program: data });
+            notify(program ? "Curso atualizado." : "Curso criado.");
+            close();
+          } catch {
+            setBusy(false);
+          }
+        }}
+      >
+        <label className="field">
+          Nome do curso
+          <input
+            required
+            maxLength={150}
+            value={data.name}
+            onChange={(event) => setData({ ...data, name: event.target.value })}
+            placeholder="Ex.: Senado Federal, Mauá, Inglês"
+          />
+        </label>
+        <div className="form-grid">
+          <label className="field">
+            Objetivo
+            <select
+              value={data.track}
+              onChange={(event) =>
+                setData({ ...data, track: event.target.value as Track })
+              }
+            >
+              <option value="concurso">Concurso</option>
+              <option value="faculdade">Faculdade</option>
+              <option value="pessoal">Pessoal</option>
+            </select>
+          </label>
+          <label className="field">
+            Cor
+            <input
+              type="color"
+              value={data.color}
+              onChange={(event) =>
+                setData({ ...data, color: event.target.value })
+              }
+            />
+          </label>
+        </div>
+        <label className="field">
+          Descrição
+          <textarea
+            rows={3}
+            maxLength={5000}
+            value={data.description}
+            onChange={(event) =>
+              setData({ ...data, description: event.target.value })
+            }
+            placeholder="Seu objetivo, instituição ou conteúdos deste curso."
+          />
+        </label>
+        <Actions
+          busy={busy}
+          close={close}
+          label={program ? "Salvar curso" : "Criar curso"}
+        />
+      </form>
+    </Modal>
+  );
+}
+export function SubjectForm({
+  subject,
+  programId,
+  close,
+}: {
+  subject?: Subject;
+  programId?: string;
+  close: () => void;
+}) {
+  const { state, act, notify } = useApp();
+  const [busy, setBusy] = useState(false);
+  const initialProgram =
+    state.programs.find(
+      (program) => program.id === (subject?.programId || programId),
+    ) ||
+    state.programs.find((program) => program.track === "faculdade") ||
+    state.programs[0];
   const [data, setData] = useState<Subject>(
-    subject || { id: uid(), name: "", track: "faculdade", color: "#729a84" },
+    subject || {
+      id: uid(),
+      programId: initialProgram?.id || "",
+      name: "",
+      track: initialProgram?.track || "faculdade",
+      color: initialProgram?.color || "#729a84",
+    },
   );
   return (
     <Modal
       title={subject ? "Editar matéria" : "Um novo caminho"}
-      subtitle="Adicione uma matéria da faculdade ou de qualquer concurso."
+      subtitle="Organize uma matéria dentro do seu curso."
       close={close}
     >
       <form
-        onSubmit={async (e) => {
-          e.preventDefault();
+        onSubmit={async (event) => {
+          event.preventDefault();
           setBusy(true);
           try {
             await act({ type: "subject.save", subject: data });
@@ -334,21 +442,35 @@ export function SubjectForm({
             required
             maxLength={120}
             value={data.name}
-            onChange={(e) => setData({ ...data, name: e.target.value })}
+            onChange={(event) => setData({ ...data, name: event.target.value })}
           />
         </label>
         <div className="form-grid">
           <label className="field">
-            Objetivo
+            Curso
             <select
-              value={data.track}
-              onChange={(e) =>
-                setData({ ...data, track: e.target.value as Track })
-              }
+              required
+              value={data.programId}
+              onChange={(event) => {
+                const program = state.programs.find(
+                  (program) => program.id === event.target.value,
+                );
+                if (program)
+                  setData({
+                    ...data,
+                    programId: program.id,
+                    track: program.track,
+                  });
+              }}
             >
-              <option value="concurso">Concurso</option>
-              <option value="faculdade">Faculdade</option>
-              <option value="pessoal">Pessoal</option>
+              {!state.programs.length && (
+                <option value="">Crie um curso primeiro</option>
+              )}
+              {state.programs.map((program) => (
+                <option key={program.id} value={program.id}>
+                  {program.name}
+                </option>
+              ))}
             </select>
           </label>
           <label className="field">
@@ -356,12 +478,15 @@ export function SubjectForm({
             <input
               type="color"
               value={data.color}
-              onChange={(e) => setData({ ...data, color: e.target.value })}
+              onChange={(event) =>
+                setData({ ...data, color: event.target.value })
+              }
             />
           </label>
         </div>
         <Actions
           busy={busy}
+          disabled={!data.programId}
           close={close}
           label={subject ? "Salvar matéria" : "Criar matéria"}
         />
@@ -384,14 +509,14 @@ export function CourseForm({
     course || { id: uid(), subjectId, title: "", provider: "Pessoal", url: "" },
   );
   return (
-    <Modal title={course ? "Editar curso" : "Adicionar curso"} close={close}>
+    <Modal title={course ? "Editar módulo" : "Adicionar módulo"} close={close}>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
           try {
             await act({ type: "course.save", course: data });
-            notify(course ? "Curso atualizado." : "Curso adicionado.");
+            notify(course ? "Módulo atualizado." : "Módulo adicionado.");
             close();
           } catch {
             setBusy(false);
@@ -399,7 +524,7 @@ export function CourseForm({
         }}
       >
         <label className="field">
-          Nome do curso
+          Nome do módulo
           <input
             required
             maxLength={300}
@@ -408,7 +533,7 @@ export function CourseForm({
           />
         </label>
         <label className="field">
-          Instituição ou plataforma
+          Instituição ou fonte
           <input
             required
             maxLength={120}
@@ -417,7 +542,7 @@ export function CourseForm({
           />
         </label>
         <label className="field">
-          Link do curso
+          Link do módulo
           <input
             type="url"
             value={data.url}
@@ -428,7 +553,7 @@ export function CourseForm({
         <Actions
           busy={busy}
           close={close}
-          label={course ? "Salvar curso" : "Adicionar curso"}
+          label={course ? "Salvar módulo" : "Adicionar módulo"}
         />
       </form>
     </Modal>

@@ -55,13 +55,37 @@ function minimalPdf(): Buffer {
   return Buffer.from(output);
 }
 
-export const test = base.extend<{ ninho: NinhoTestApp }>({
-  ninho: async ({}, use, testInfo) => {
+type ProfileOptions = {
+  initialState: unknown | undefined;
+  initialMaterials: { storedName: string; content: string }[];
+};
+
+export const test = base.extend<{ ninho: NinhoTestApp } & ProfileOptions>({
+  initialState: [undefined, { option: true }],
+  initialMaterials: [[], { option: true }],
+  ninho: async ({ initialState, initialMaterials }, use, testInfo) => {
     await fs.mkdir(runRoot, { recursive: true });
     const testRoot = await fs.mkdtemp(path.join(runRoot, "profile-"));
     const dataDir = path.join(testRoot, "data");
     const fixtureDir = path.join(testRoot, "imports");
     await fs.mkdir(fixtureDir, { recursive: true });
+    if (initialState !== undefined) {
+      await fs.mkdir(dataDir, { recursive: true });
+      await fs.writeFile(
+        path.join(dataDir, "state.json"),
+        JSON.stringify(initialState),
+      );
+    }
+    for (const material of initialMaterials) {
+      if (!/^[a-f0-9-]+\.[a-z0-9]+$/i.test(material.storedName))
+        throw new Error("Unsafe synthetic material filename");
+      const materialsDir = path.join(dataDir, "materials");
+      await fs.mkdir(materialsDir, { recursive: true });
+      await fs.writeFile(
+        path.join(materialsDir, material.storedName),
+        material.content,
+      );
+    }
     await fs.writeFile(
       path.join(fixtureDir, "revisao-redes.txt"),
       "Revisão de redes\nDNS traduz nomes de domínio em informações de endereçamento.\nArquivo de teste sem dados pessoais.\n",
@@ -78,7 +102,7 @@ export const test = base.extend<{ ninho: NinhoTestApp }>({
     env.NINHO_DATA_DIR = dataDir;
     env.NINHO_E2E = "1";
     let app = await _electron.launch({
-      args: ["."],
+      args: [path.join(projectDir, "tests", "e2e", "bootstrap.cjs")],
       cwd: projectDir,
       env,
       timeout: 30_000,
@@ -141,7 +165,7 @@ export const test = base.extend<{ ninho: NinhoTestApp }>({
         restart: async () => {
           await app.close();
           app = await _electron.launch({
-            args: ["."],
+            args: [path.join(projectDir, "tests", "e2e", "bootstrap.cjs")],
             cwd: projectDir,
             env,
             timeout: 30_000,

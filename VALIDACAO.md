@@ -1,61 +1,72 @@
-# Validação do Ninho 1.0.0
+# Validação do Ninho 1.1.2
 
 Executada em 14/09/2026, no Windows 11 x64.
 
 ## Resultados
 
-| Verificação | Resultado |
-| --- | --- |
-| TypeScript e compilação de produção | Aprovados |
-| Vitest: domínio, armazenamento, segurança e componentes | 246 testes aprovados em 10 arquivos |
-| Playwright com Electron: fluxos completos | 18 testes aprovados |
-| Executável empacotado | Abertura e navegação pelas 8 áreas aprovadas |
-| Persistência no executável | Preferências recuperadas após encerrar e reabrir |
-| Aparência | Claro, escuro e janela mínima de 1100 × 720 conferidos |
-| Erros JavaScript nas execuções completas | Nenhuma exceção não tratada |
-| Dependências (`npm audit`) | Zero vulnerabilidades reportadas |
-| Geração portátil do Windows | Aprovada; Ninho-1.0.0.exe, aproximadamente 100 MB |
+| Verificação                                                         | Resultado                                                                                                                |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| TypeScript e compilação de produção                                 | Aprovados                                                                                                                |
+| Vitest: domínio, armazenamento, IA, backup, segurança e componentes | 416 testes aprovados em 20 arquivos                                                                                      |
+| Playwright com Electron: fluxos completos                           | 26 cenários aprovados no build 1.1.1                                                                                     |
+| Regressão após adicionar materiais dentro de cada aula              | 8 cenários aprovados no build 1.1.2                                                                                      |
+| LM Studio e modelo real                                             | Duas respostas locais recebidas; instância do teste liberada ao final                                                    |
+| Instalador, registro, atalhos e preservação dos dados               | Instalador terminou com código 0; 26 conferências da instalação aprovadas                                                |
+| Auditoria de dependências                                           | npm audit sem vulnerabilidades conhecidas                                                                                |
+| Aplicativo instalado 1.1.2                                          | Navegação nas oito áreas, temas, janela mínima e persistência após reinício aprovados; 14 de 14 capturas nativas obtidas |
 
-Os testes usaram perfis temporários. Não criaram progresso de estudo no perfil pessoal, nem alteraram o Anki ou a plataforma Estratégia.
+Os testes automatizados usaram perfis temporários, separados do perfil pessoal. Nos testes de interface, os seletores nativos e as chamadas que abririam outros aplicativos têm respostas controladas. O HTTP do LM Studio é simulado nesses cenários; a execução com modelo real foi verificada separadamente, conforme `VALIDACAO-IA.md`.
 
 ## Funcionalidades exercitadas
 
-- Catálogo completo mapeado, incluindo matérias fora de TI; busca e filtros.
-- Cadastro e edição de matéria, curso e aula, preservando IDs, vínculos, notas e situação da aula.
-- Quatro avaliações de revisão, limite global de cartões novos, filtro por matéria, cartões novos imediatamente disponíveis, edição, exclusão, suspensão e sinalizações.
-- Prevenção de avaliações duplicadas e de resposta revelada em outro cartão.
-- Importação real de PDF e TXT, cópia independente do original, prévias, anotações, troca de matéria, abertura externa e remoção da biblioteca.
-- Proteção contra prévias fora de ordem e vínculo antigo reaparecendo ao editar um material.
-- Provas e tarefas: cadastro, edição, conclusão, reabertura, exclusão, calendário e resumo na tela inicial.
-- Foco: iniciar, pausar, retomar, reiniciar, concluir antes do fim e concluir automaticamente. Pausas não somam tempo de estudo. Testes de recarga, erros, operações simultâneas e restauração de backup.
-- Preferências e temas persistidos; contraste base real do tema escuro verificado em teste e visualmente.
-- Backup com anexos, restauração, cancelamento, arquivo inválido, recuperação e preservação dos dados anteriores.
-- Íris: falta de evidência, revisões vencidas, lapsos, fontes marcadas, filtros por matéria, perguntas, prioridades e abertura da aula ou cartão específico.
-- Proteção de IPC, URLs e arquivos; textos de cartões são exibidos sem executar HTML ou scripts.
+- Cursos principais, matérias, módulos e aulas: criação, edição, pesquisa, filtros e navegação. Migração do formato anterior preservando IDs, histórico, notas e vínculos.
+- Data da tela Hoje abrindo o calendário; provas, tarefas, conclusão, reabertura, edição e exclusão.
+- Cartões, quatro avaliações de lembrança, agendamento, limite global de novos cartões, edição, exclusão, suspensão e sinalizações.
+- Cronômetro por matéria e aula, pausa, retomada, reinício, conclusão, persistência e recuperação após reabertura. Pausas não somam tempo de estudo. O vínculo não muda durante uma sessão em andamento, e registrar tempo não conclui a aula automaticamente. Botões visíveis nas janelas padrão e compacta.
+- Materiais dentro da matéria e da aula, importação com contexto explícito, cópia independente, seletor para mover o material entre aulas, prévias de PDF e texto, anotações, edição e remoção. Trocar a matéria limpa o vínculo com a aula anterior. Proteção contra respostas assíncronas fora de ordem e edições durante salvamento.
+- Vídeo WebM e áudio WAV válidos: importação, filtros, encaminhamento ao caminho interno correto, backup e restauração byte a byte. Importação de mídia acima de 100 MiB e rejeição acima do limite de 2 GiB também verificadas.
+- Backup por streaming, ZIP/ZIP64, restauração de formatos anterior e atual, cancelamento, limites, integridade, recuperação e preservação da coleção anterior.
+- IA: seleção de modelo, contexto dos registros e da matéria, histórico, resposta livre, indisponibilidade, erro, cancelamento, nova conversa e liberação apenas de modelos carregados pelo Ninho. O contexto distingue tempo registrado por aula de domínio ou conclusão.
+- Preferências persistidas, temas claro e escuro, contraste, textos maiores na assistente, layout e posicionamento do visualizador de PDF na janela. Transições nativas entre páginas, navegação rápida e preferência de movimento reduzido do usuário e do Windows.
+- Validação de IPC, URLs e arquivos, conteúdo de texto sem execução de HTML e proteção contra caminhos inválidos em backups.
 
-## Cobertura e evidências
+A cobertura instrumentada reportada abrange os módulos de domínio, armazenamento, segurança, IA e backup; não representa cobertura integral de toda a aplicação. Resultado agregado: **93,13% das instruções, 89,51% das ramificações, 92,96% das funções e 94,04% das linhas**. A interface e a associação de materiais também são exercitadas por testes de componentes e de fluxos completos.
 
-A cobertura instrumentada abrange **regras de domínio, armazenamento e segurança**, não toda a interface nem o processo principal do Electron: **95,57% das linhas**, **91,07% das ramificações** e **98,21% das funções**. A interface é verificada por testes de componentes e fluxos completos.
+## Dados pessoais e materiais
 
-- Relatório de cobertura: `coverage/index.html`.
-- Relatório de fluxos: `test-results/e2e-report/index.html`.
-- Capturas e resultado do executável: `test-results/packaged`.
-- Critérios de aceitação: `tests/ACCEPTANCE.md`.
+Antes da migração foram criados um JSON e um ZIP de segurança em `%APPDATA%\Ninho\backups`, com o prefixo `antes-ninho-1.1-2026-09-14T19-29-26-740Z`.
 
-Na inspeção e revisão foram encontrados e corrigidos problemas de concorrência, contexto de navegação, recuperação do foco contraste escuro e posicionamento de modais sobre páginas animadas. As verificações finais foram repetidas após as correções.
+A coleção tem dois cursos principais, 15 matérias, 20 módulos, 271 aulas/materiais extras e 71 cartões. As preferências e o histórico foram preservados. Foram importadas cópias dos dois PDFs já existentes em Downloads, verificadas por SHA-256: Banco de dados aula 00 e Literatura aula 00. Ambos já estavam vinculados às respectivas aulas; a nova interface permite encontrá-los ali sem reimportar. Não foi criado progresso fictício.
 
-## Arquivos de entrega
+A coleta completa dos demais PDFs do Estratégia permanece pendente. Depois de interrupções iniciais por controle simultâneo, a ferramenta encerrou a última tentativa por não conseguir confirmar a URL do Brave. Não houve novas tentativas após esse bloqueio. Nenhum PDF novo foi baixado nesta etapa. As 271 aulas ainda precisam de conferência de todos os documentos disponíveis, inclusive variantes das duas aulas com PDF já conhecido. Veja `PENDENCIAS-ESTRATEGIA.md`.
 
-- `release/Ninho-1.0.0.exe`: arquivo portátil para abrir o aplicativo.
-- `release/win-unpacked/Ninho.exe`: aplicativo já extraído. Mantenha os demais arquivos dessa pasta junto dele.
-- `LEIA-ME.md`: início rápido, funcionamento e limites conhecidos.
+## Instalação e arquivos de entrega
 
-SHA-256 do arquivo portátil:
+- Aplicativo instalado: `C:\Users\aless\AppData\Local\Programs\Ninho\Ninho.exe`.
+- Instalador: `C:\Users\aless\Ninho\release\Ninho-Setup-1.1.2.exe`.
+- Atalhos **Ninho** na área de trabalho e no menu Iniciar apontam para o aplicativo instalado, com AppUserModelID `com.aless.ninho`.
+- O instalador mantém o registro de versão e o desinstalador no Windows. O ícone incorporado foi conferido nos sete tamanhos de 16 a 256 pixels e permanece o mesmo nesta atualização.
+
+SHA-256 do instalador:
 
 ```text
-4D2C7039E11564868869AB41047267D89CAA27D1693A24F222E5D632E286ACC5
+8571A545F975EF562E916223C9F3B6C2F3767370D8A3D3C58A021130F6166708
 ```
+
+O estado pessoal e os dois PDFs mantiveram seus hashes SHA-256 antes e depois da instalação 1.1.2. Versão do executável, conteúdo empacotado, ícone, registro do Windows, atalhos e desinstalador foram conferidos contra a compilação de entrega.
+
+## Evidências
+
+- `coverage/index.html`: cobertura instrumentada.
+- `test-results/e2e-v1.1.1-report/index.html`: 26 cenários completos.
+- `test-results/e2e-v1.1.2-report/index.html`: oito cenários finais de materiais, aulas e cronômetro.
+- `test-results/packaged/result.json`: teste do executável instalado 1.1.2 em perfil temporário, com imagens das telas.
+- `tests/RESULTADOS-E2E.md` e `tests/ACCEPTANCE.md`: escopo e critérios dos testes de interface.
+- `VALIDACAO-IA.md`: teste real, desempenho observado e limites da IA.
+- `scripts/verify-installation.ps1`: conferência de versão, executáveis, registro, atalhos, ícone e integridade do estado, sem modificar a instalação.
+- `.cache/installation-update-1.1.2.json` e `.cache/installation-verification-1.1.2.json`: instalação, comparação de hashes e 26 conferências aprovadas.
+- `.cache/pdf-import-result.json`: importação dos dois documentos existentes.
 
 ## Limites da versão
 
-O Estratégia está integrado por catálogo e links reais, sem sincronização automática. Há 71 cartões iniciais de dois PDFs, e não cartões prontos para todas as aulas. A Íris é um assistente local baseado em regras e registros: não usa IA generativa, não lê PDFs e não identifica mudanças factuais automaticamente. O acompanhamento começa com as suas respostas e registros reais.
+O Estratégia está integrado por catálogo e links reais, sem sincronização automática. Os 71 cartões iniciais vêm de dois PDFs, não de todas as aulas. A conversa com a Íris usa IA generativa local via LM Studio e recebe um resumo dos registros; não lê automaticamente PDFs ou vídeos, não pesquisa a internet e não altera cadastros por conta própria. O acompanhamento depende das respostas e registros reais do usuário e não mede domínio factual nem detecta sozinho mudanças em leis ou tecnologias.

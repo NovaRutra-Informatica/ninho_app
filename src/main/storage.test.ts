@@ -19,6 +19,7 @@ function initial(): AppState {
         id: "sub1",
         name: "Banco de dados",
         track: "concurso",
+        programId: "senado-federal",
         color: "#66895A",
       },
     ],

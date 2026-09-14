@@ -105,23 +105,35 @@ test("importa PDF e texto, exibe prévia, guarda anotações e conserva os origi
   await expect(modal.locator("iframe")).toBeVisible();
   await expect(modal).toHaveCSS("opacity", "1");
   const bounds = (await modal.boundingBox())!;
-  const viewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+  const viewport = await page.evaluate(() => ({
+    width: innerWidth,
+    height: innerHeight,
+  }));
   expect(bounds.x).toBeGreaterThanOrEqual(0);
   expect(bounds.y).toBeGreaterThanOrEqual(0);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
   expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
   let pdfViewerFrame: import("@playwright/test").Frame | undefined;
-  await expect.poll(async () => {
-    for (const frame of page.frames()) {
-      if (await frame.locator("pdf-viewer").count()) {
-        pdfViewerFrame = frame;
-        return true;
+  await expect
+    .poll(async () => {
+      for (const frame of page.frames()) {
+        if (await frame.locator("pdf-viewer").count()) {
+          pdfViewerFrame = frame;
+          return true;
+        }
       }
-    }
-    return false;
-  }).toBe(true);
-  await expect(pdfViewerFrame!.getByRole("textbox", { name: "Page number", exact: true })).toHaveValue("1");
-  await expect(pdfViewerFrame!.getByRole("tab", { name: "Thumbnail for page 1", exact: true })).toBeVisible();
+      return false;
+    })
+    .toBe(true);
+  await expect(
+    pdfViewerFrame!.getByRole("textbox", { name: "Page number", exact: true }),
+  ).toHaveValue("1");
+  await expect(
+    pdfViewerFrame!.getByRole("tab", {
+      name: "Thumbnail for page 1",
+      exact: true,
+    }),
+  ).toBeVisible();
   const pdfScreenshot = testInfo.outputPath("pdf-carregado.png");
   await page.screenshot({ path: pdfScreenshot, animations: "disabled" });
   await testInfo.attach("previa-pdf", {

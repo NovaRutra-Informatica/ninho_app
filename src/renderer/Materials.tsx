@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   ArrowUpRight,
   File,
@@ -25,10 +25,28 @@ const fileSize = (bytes: number) =>
   bytes < 1024 * 1024
     ? `${Math.max(1, Math.round(bytes / 1024))} KB`
     : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-export default function Materials() {
+const videoTypes = ["mp4", "webm", "mov", "mkv"];
+const audioTypes = ["mp3", "wav", "ogg", "m4a", "aac", "flac"];
+export default function Materials({
+  subjectId,
+  lessonId,
+  embedded = false,
+}: {
+  subjectId?: string;
+  lessonId?: string;
+  embedded?: boolean;
+}) {
   const { state, act, api, replace, notify } = useApp();
+  const lessonHelpId = useId();
   const [query, setQuery] = useState("");
   const [subject, setSubject] = useState("");
+  const lessonScoped = lessonId !== undefined;
+  const scopedLesson = state.lessons.find((lesson) => lesson.id === lessonId);
+  const activeSubject =
+    subjectId || (lessonScoped ? scopedLesson?.subjectId || "" : subject);
+  const scopeAvailable =
+    !lessonScoped ||
+    Boolean(scopedLesson && scopedLesson.subjectId === activeSubject);
   const [type, setType] = useState("all");
   const [importing, setImporting] = useState(false);
   const [selected, setSelected] = useState<Material | null>(null);
@@ -36,21 +54,38 @@ export default function Materials() {
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState("");
   const [linkedSubject, setLinkedSubject] = useState("");
+  const [linkedLesson, setLinkedLesson] = useState("");
+  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Material | null>(null);
   const previewRequest = useRef(0);
   const importPending = useRef(false);
+  const savesPending = useRef(new Set<string>());
   useEffect(
     () => () => {
       previewRequest.current++;
     },
     [],
   );
+  useEffect(() => {
+    previewRequest.current++;
+    setSelected(null);
+    setPreview(null);
+    setLoading(false);
+    setSaving(false);
+    setDeleting(null);
+    setQuery("");
+    setType("all");
+  }, [subjectId, lessonId]);
   const importFiles = async () => {
-    if (importPending.current) return;
+    if (importPending.current || !scopeAvailable) return;
     importPending.current = true;
     setImporting(true);
     try {
-      const next = await api.importMaterials({ subjectId: subject });
+      const next = await api.importMaterials(
+        lessonScoped
+          ? { subjectId: activeSubject, lessonId }
+          : { subjectId: activeSubject },
+      );
       if (next) {
         replace(next);
         notify("Seus materiais estão guardados.");
@@ -67,12 +102,21 @@ export default function Materials() {
     setSelected(null);
     setPreview(null);
     setLoading(false);
+    setSaving(false);
   };
   const open = async (material: Material) => {
+    if (savesPending.current.has(material.id)) {
+      notify(
+        "Este material está sendo salvo. Aguarde um instante para reabri-lo.",
+      );
+      return;
+    }
     const request = ++previewRequest.current;
     setSelected(material);
     setNotes(material.notes);
     setLinkedSubject(material.subjectId);
+    setLinkedLesson(material.lessonId);
+    setSaving(false);
     setPreview(null);
     setLoading(true);
     try {
@@ -85,30 +129,95 @@ export default function Materials() {
       if (request === previewRequest.current) setLoading(false);
     }
   };
-  const filtered = state.materials.filter(
+  const saveMaterial = async () => {
+    const request = previewRequest.current;
+    if (!selected || savesPending.current.has(selected.id)) return;
+    const materialId = selected.id;
+    savesPending.current.add(materialId);
+    setSaving(true);
+    const updated = {
+      ...selected,
+      notes,
+      subjectId: linkedSubject,
+      lessonId: linkedLesson,
+    };
+    try {
+      await act({
+        type: "material.update",
+        id: selected.id,
+        patch: {
+          ...(notes !== selected.notes ? { notes } : {}),
+          ...(linkedSubject !== selected.subjectId ||
+          linkedLesson !== selected.lessonId
+            ? { subjectId: linkedSubject, lessonId: linkedLesson }
+            : {}),
+        },
+      });
+      if (request === previewRequest.current) setSelected(updated);
+      notify("Material atualizado.");
+    } catch {
+      // The store reports the error and preserves the unsaved fields.
+    } finally {
+      savesPending.current.delete(materialId);
+      if (request === previewRequest.current) setSaving(false);
+    }
+  };
+  const lessonLabel = (id: string) => {
+    const lesson = state.lessons.find((item) => item.id === id);
+    if (!lesson) return "";
+    const course = state.courses.find((item) => item.id === lesson.courseId);
+    return `${lesson.title} · ${course?.title || "Módulo sem nome"}`;
+  };
+  const scopedMaterials = state.materials.filter(
+    (material) =>
+      scopeAvailable &&
+      (!activeSubject || material.subjectId === activeSubject) &&
+      (!lessonScoped || material.lessonId === lessonId),
+  );
+  const filtered = scopedMaterials.filter(
     (m) =>
       normalizeSearch(m.name + " " + m.notes).includes(
         normalizeSearch(query),
       ) &&
-      (!subject || m.subjectId === subject) &&
       (type === "all" ||
         (type === "image" && ["png", "jpg", "jpeg", "webp"].includes(m.type)) ||
+        (type === "video" && videoTypes.includes(m.type)) ||
+        (type === "audio" && audioTypes.includes(m.type)) ||
         type === m.type),
   );
   return (
-    <section className="page-enter">
+    <section
+      className={`page-enter materials-page ${embedded ? "subject-materials" : ""} ${lessonScoped ? "lesson-materials" : ""}`}
+      data-testid={lessonScoped ? `lesson-materials-${lessonId}` : undefined}
+    >
       <div className="page-heading">
         <div>
-          <h1>Tudo que ajuda a aprender.</h1>
-          <p>Seus PDFs, anotações, apresentações e imagens. Em um lugar só.</p>
+          {lessonScoped ? (
+            <h2>Materiais desta aula</h2>
+          ) : embedded ? (
+            <h2>Materiais desta matéria</h2>
+          ) : (
+            <h1>Tudo que ajuda a aprender.</h1>
+          )}
+          <p>
+            {lessonScoped
+              ? "Seus PDFs, resumos e arquivos ficam juntos da aula em que você estuda."
+              : embedded
+                ? "As leituras, anotações e arquivos para continuar aprendendo."
+                : "Sua biblioteca completa. Cada matéria também tem seus próprios materiais."}
+          </p>
         </div>
         <button
           className="button primary"
-          disabled={importing}
+          disabled={importing || !scopeAvailable}
           onClick={() => void importFiles()}
         >
           <Plus size={18} />
-          {importing ? "Importando…" : "Adicionar arquivos"}
+          {importing
+            ? "Importando…"
+            : lessonScoped
+              ? "Adicionar arquivos à aula"
+              : "Adicionar arquivos"}
         </button>
       </div>
       <div className="toolbar">
@@ -130,15 +239,24 @@ export default function Materials() {
           <option value="docx">Word</option>
           <option value="pptx">PowerPoint</option>
           <option value="xlsx">Excel</option>
+          <option value="video">Vídeos</option>
+          <option value="audio">Áudios</option>
         </select>
-        <SubjectSelect
-          value={subject}
-          onChange={setSubject}
-          allowAll
-          label="Filtrar matéria"
-        />
+        {!subjectId && !lessonScoped && (
+          <SubjectSelect
+            value={subject}
+            onChange={setSubject}
+            allowAll
+            label="Filtrar matéria"
+          />
+        )}
       </div>
-      {!state.materials.length && !query ? (
+      {!scopeAvailable ? (
+        <Empty
+          title="Esta aula não está disponível."
+          text="Volte aos estudos e abra uma aula existente para organizar seus materiais."
+        />
+      ) : !scopedMaterials.length && !query ? (
         <button
           className="upload-zone"
           disabled={importing}
@@ -148,15 +266,23 @@ export default function Materials() {
             <FolderOpen size={55} />
             <Plus size={20} />
           </span>
-          <h2>Seu próximo conhecimento começa aqui.</h2>
-          <p>Escolha arquivos no computador para montar sua biblioteca.</p>
+          <h2>
+            {lessonScoped
+              ? "Nenhum material nesta aula ainda."
+              : "Seu próximo conhecimento começa aqui."}
+          </h2>
+          <p>
+            {lessonScoped
+              ? "Escolha arquivos no computador para estudar com eles nesta aula."
+              : "Escolha arquivos no computador para montar sua biblioteca."}
+          </p>
           <span className="button primary">
             Escolher arquivos
             <ArrowUpRight size={17} />
           </span>
           <small>
-            PDF, imagens, TXT, Markdown, Word, PowerPoint e Excel · até 100 MB
-            por arquivo
+            PDF, imagens, textos e Office · até 100 MB. Vídeos e áudios · até 2
+            GB.
           </small>
         </button>
       ) : (
@@ -188,6 +314,7 @@ export default function Materials() {
               <small>
                 {state.subjects.find((s) => s.id === material.subjectId)
                   ?.name || "Sem matéria"}
+                {material.lessonId && ` · ${lessonLabel(material.lessonId)}`}
               </small>
               <footer>
                 <span>
@@ -206,7 +333,11 @@ export default function Materials() {
           {!filtered.length && (
             <Empty
               title="Nada encontrado."
-              text="Tente outro nome, formato ou matéria."
+              text={
+                lessonScoped
+                  ? "Tente outro nome ou formato entre os arquivos desta aula."
+                  : "Tente outro nome, formato ou matéria."
+              }
               icon={<Search size={26} />}
             />
           )}
@@ -215,8 +346,9 @@ export default function Materials() {
       <div className="library-note">
         <FolderOpen size={17} />
         <span>
-          Os arquivos importados ganham uma cópia dentro do Ninho. Os originais
-          ficam onde estão.
+          {lessonScoped
+            ? "Os arquivos adicionados aqui ficam vinculados a esta aula. Para usar um arquivo já importado, abra-o nos materiais da matéria e escolha esta aula."
+            : "Os arquivos importados ganham uma cópia dentro do Ninho. Os originais ficam onde estão. PDFs do Estratégia com nome de curso e aula reconhecidos são organizados automaticamente."}
         </span>
       </div>
       {selected && (
@@ -257,48 +389,55 @@ export default function Materials() {
               )}
             </div>
             <aside>
-              <SubjectSelect
-                value={linkedSubject}
-                onChange={setLinkedSubject}
-              />
-              <label className="field">
-                Anotações do material
-                <textarea
-                  rows={8}
-                  value={notes}
-                  maxLength={20000}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Trechos importantes, dúvidas, páginas para voltar…"
+              <fieldset className="material-fields" disabled={saving}>
+                <SubjectSelect
+                  value={linkedSubject}
+                  onChange={(value) => {
+                    setLinkedSubject(value);
+                    setLinkedLesson("");
+                  }}
                 />
-              </label>
+                <label className="field">
+                  Aula do material
+                  <select
+                    aria-label="Aula do material"
+                    aria-describedby={lessonHelpId}
+                    value={linkedLesson}
+                    disabled={!linkedSubject}
+                    onChange={(event) => setLinkedLesson(event.target.value)}
+                  >
+                    <option value="">Sem aula específica</option>
+                    {state.lessons
+                      .filter((lesson) => lesson.subjectId === linkedSubject)
+                      .map((lesson) => (
+                        <option key={lesson.id} value={lesson.id}>
+                          {lessonLabel(lesson.id)}
+                        </option>
+                      ))}
+                  </select>
+                  <small id={lessonHelpId}>
+                    {linkedSubject
+                      ? "Escolha a aula ou deixe o arquivo disponível apenas na matéria."
+                      : "Escolha uma matéria para vincular o arquivo a uma aula."}
+                  </small>
+                </label>
+                <label className="field">
+                  Anotações do material
+                  <textarea
+                    rows={8}
+                    value={notes}
+                    maxLength={20000}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Trechos importantes, dúvidas, páginas para voltar…"
+                  />
+                </label>
+              </fieldset>
               <button
                 className="button primary full"
-                onClick={async () => {
-                  try {
-                    const updated = {
-                      ...selected,
-                      notes,
-                      subjectId: linkedSubject,
-                      lessonId:
-                        linkedSubject === selected.subjectId
-                          ? selected.lessonId
-                          : "",
-                    };
-                    await act({
-                      type: "material.update",
-                      id: selected.id,
-                      patch: {
-                        notes: updated.notes,
-                        subjectId: updated.subjectId,
-                        lessonId: updated.lessonId,
-                      },
-                    });
-                    setSelected(updated);
-                    notify("Material atualizado.");
-                  } catch {}
-                }}
+                disabled={saving}
+                onClick={() => void saveMaterial()}
               >
-                Salvar material
+                {saving ? "Salvando…" : "Salvar material"}
               </button>
               <button
                 className="button secondary full"

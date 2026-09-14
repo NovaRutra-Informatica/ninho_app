@@ -12,6 +12,10 @@ test("o aplicativo abre localmente com catálogo completo e uma ponte nativa res
   }));
   expect(bridge.methods).toEqual(
     [
+      "aiStatus",
+      "aiChat",
+      "aiCancel",
+      "aiUnload",
       "dispatch",
       "exportBackup",
       "getPaths",
@@ -33,6 +37,11 @@ test("o aplicativo abre localmente com catálogo completo e uma ponte nativa res
   expect(preferences.nodeIntegration).toBe(false);
 
   const state = await ninho.state();
+  expect(state.version).toBe(2);
+  expect(state.programs.map((program) => program.id)).toEqual([
+    "senado-federal",
+    "maua",
+  ]);
   expect(state.courses).toHaveLength(20);
   expect(state.lessons).toHaveLength(271);
   expect(new Set(state.lessons.map((lesson) => lesson.id)).size).toBe(271);

@@ -4,6 +4,7 @@ import path from "node:path";
 import { mkdirSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { DataRecoveryError, StudyStore } from "./storage";
+import { LocalAiService } from "./ai";
 import {
   isTrustedDocument,
   MATERIAL_EXTENSIONS,
@@ -21,6 +22,10 @@ const dataDirectory = isolatedTest
 mkdirSync(dataDirectory, { recursive: true });
 app.setPath("userData", dataDirectory);
 const store = new StudyStore(dataDirectory);
+const ai = new LocalAiService({
+  loadState: () => store.load(),
+  allowCli: !isolatedTest,
+});
 let window: BrowserWindow | null = null;
 const indexPath = path.join(__dirname, "..", "dist", "index.html");
 const developmentUrl =
@@ -54,6 +59,10 @@ function registerHandlers(): void {
       return action(...args);
     });
   handle("ninho:load", () => store.load());
+  handle("ninho:ai-status", () => ai.status());
+  handle("ninho:ai-chat", (request) => ai.chat(request));
+  handle("ninho:ai-cancel", (requestId: string) => ai.cancel(requestId));
+  handle("ninho:ai-unload", () => ai.unload());
   handle("ninho:dispatch", (command: Command) => store.dispatch(command));
   handle(
     "ninho:import-materials",
@@ -227,7 +236,9 @@ async function createWindow(): Promise<void> {
   window.webContents.on("will-prevent-unload", (event) =>
     event.preventDefault(),
   );
-  window.once("ready-to-show", () => window?.show());
+  window.once("ready-to-show", () => {
+    if (!isolatedTest || process.env.NINHO_E2E_VISIBLE === "1") window?.show();
+  });
   window.on("closed", () => {
     window = null;
   });
@@ -261,4 +272,14 @@ if (!app.requestSingleInstanceLock()) {
       app.quit();
     });
   app.on("window-all-closed", () => app.quit());
+  let aiCleaned = false;
+  app.on("before-quit", (event) => {
+    if (aiCleaned) return;
+    event.preventDefault();
+    aiCleaned = true;
+    void Promise.race([
+      ai.dispose(),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]).finally(() => app.quit());
+  });
 }

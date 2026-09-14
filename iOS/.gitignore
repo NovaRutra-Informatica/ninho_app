@@ -1,0 +1,13 @@
+.build/
+.swiftpm/
+DerivedData/
+build/
+TestResults/
+*.xcuserstate
+xcuserdata/
+*.ipa
+*.xcarchive/
+.DS_Store
+__pycache__/
+*.pyc
+Signing.xcconfig

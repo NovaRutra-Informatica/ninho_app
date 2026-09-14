@@ -1,6 +1,10 @@
 # PDFs do Estratégia — situação da importação
 
-Atualizado em 14/09/2026. O catálogo do Ninho reúne 20 módulos e 271 aulas ou materiais extras. Isso não significa que os respectivos PDFs foram baixados ou lidos.
+Atualizado em 14/09/2026. Por decisão posterior do usuário, a coleta automática foi interrompida: ele fará os downloads e informará quando os arquivos estiverem prontos para importação. O catálogo do Ninho reúne 20 módulos e 271 aulas ou materiais extras. Isso não significa que os respectivos PDFs foram baixados ou lidos.
+
+Foram criadas as pastas de 14 matérias e 271 aulas/extras em `C:\Users\aless\Downloads\PDFs\Senado Federal`. Curso regular, Passo Estratégico e professor João Trindade não compartilham pastas de aulas com o mesmo número. O vínculo entre cada pasta e o identificador da aula está no manifesto local `.cache/senado-pdf-folders.json`.
+
+Na última retomada, o PDF completo de Banco de dados, aula 01, foi salvo em `Downloads/curso-240830-aula-01-6d9a-completo.pdf` (15.521.399 bytes). Ele ainda não foi importado no Ninho. Os dois itens abaixo continuam sendo os únicos importados por esta tarefa até essa interrupção.
 
 ## Já importados
 

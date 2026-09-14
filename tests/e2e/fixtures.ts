@@ -30,8 +30,17 @@ export interface NinhoTestApp {
   restart(): Promise<void>;
 }
 
-function minimalPdf(): Buffer {
-  const contents = "BT /F1 18 Tf 50 760 Td (Ninho - Material de teste) Tj ET";
+export function minimalPdf(paddingBytes = 0): Buffer {
+  // Two distinct vector colors make actual PDF paint observable independently
+  // of the Chromium viewer's toolbar, iframe visibility or document metadata.
+  const contents =
+    "BT /F1 18 Tf 50 760 Td (Ninho - Material de teste) Tj ET\n" +
+    "q 1 0 0.6 rg 50 660 120 60 re f Q\n" +
+    "q 0 0.8 1 rg 200 660 120 60 re f Q\n" +
+    "% Synthetic PDF padding, part of the declared content stream.\n" +
+    (paddingBytes
+      ? ("%" + "x".repeat(78) + "\n").repeat(Math.ceil(paddingBytes / 80))
+      : "");
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -57,16 +66,36 @@ function minimalPdf(): Buffer {
 
 type ProfileOptions = {
   initialState: unknown | undefined;
-  initialMaterials: { storedName: string; content: string }[];
+  initialMaterials: { storedName: string; content: string | Uint8Array }[];
+  profilePathStyle: "normal" | "junction-mixed-case" | "roaming-overlay";
 };
 
 export const test = base.extend<{ ninho: NinhoTestApp } & ProfileOptions>({
   initialState: [undefined, { option: true }],
   initialMaterials: [[], { option: true }],
-  ninho: async ({ initialState, initialMaterials }, use, testInfo) => {
-    await fs.mkdir(runRoot, { recursive: true });
-    const testRoot = await fs.mkdtemp(path.join(runRoot, "profile-"));
-    const dataDir = path.join(testRoot, "data");
+  profilePathStyle: ["normal", { option: true }],
+  ninho: async (
+    { initialState, initialMaterials, profilePathStyle },
+    use,
+    testInfo,
+  ) => {
+    if (profilePathStyle === "roaming-overlay" && !process.env.APPDATA)
+      throw new Error("APPDATA is required for the Windows overlay fixture");
+    const fixtureRoot =
+      profilePathStyle === "roaming-overlay"
+        ? path.join(process.env.APPDATA!, "Ninho-QA-E2E-Overlay")
+        : runRoot;
+    await fs.mkdir(fixtureRoot, { recursive: true });
+    const testRoot = await fs.mkdtemp(path.join(fixtureRoot, "profile-"));
+    let dataDir = path.join(testRoot, "data");
+    let junction: string | undefined;
+    if (profilePathStyle === "junction-mixed-case") {
+      const physical = path.join(testRoot, "PhysicalProfile");
+      junction = path.join(testRoot, "ProfileAlias");
+      await fs.mkdir(path.join(physical, "Data"), { recursive: true });
+      await fs.symlink(physical, junction, "junction");
+      dataDir = path.join(junction.toUpperCase(), "dAtA");
+    }
     const fixtureDir = path.join(testRoot, "imports");
     await fs.mkdir(fixtureDir, { recursive: true });
     if (initialState !== undefined) {
@@ -198,11 +227,22 @@ export const test = base.extend<{ ninho: NinhoTestApp } & ProfileOptions>({
       }
       await app.close();
       // Refuse any recursive cleanup outside the dedicated temporary test root.
-      const resolvedRoot = await fs.realpath(runRoot);
+      const resolvedRoot = await fs.realpath(fixtureRoot);
       const resolvedTest = await fs.realpath(testRoot);
       const relative = path.relative(resolvedRoot, resolvedTest);
       if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
         throw new Error("Unsafe E2E cleanup path");
+      if (junction) {
+        const target = await fs.realpath(junction);
+        const inside = path.relative(resolvedTest, target);
+        if (
+          inside.startsWith("..") ||
+          path.isAbsolute(inside) ||
+          !(await fs.lstat(junction)).isSymbolicLink()
+        )
+          throw new Error("Unsafe QA junction cleanup");
+        await fs.rmdir(junction);
+      }
       await fs.rm(resolvedTest, {
         recursive: true,
         force: true,

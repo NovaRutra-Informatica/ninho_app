@@ -8,7 +8,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyCommand, createInitialState } from "../domain";
 import type {
   AppState,
@@ -90,6 +90,150 @@ async function mount(api: NativeApi, subjectId?: string, lessonId?: string) {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+describe("prévia PDF com endereço local curto", () => {
+  const OriginalURL = URL;
+  const createUrl = vi.fn<(blob: Blob) => string>();
+  const revokeUrl = vi.fn<(url: string) => void>();
+  const pdfReply = (data = btoa("%PDF-1.7\nConteúdo de teste")): MaterialPreview => ({
+    kind: "pdf",
+    name: "Arquivo A.pdf",
+    mime: "application/pdf",
+    data,
+  });
+  const pdfNative = () => {
+    const initial = fixture();
+    initial.materials = initial.materials.map((material) => ({
+      ...material,
+      name: material.name.replace(".txt", ".pdf"),
+      storedName: material.storedName.replace(".txt", ".pdf"),
+      type: "pdf",
+    }));
+    const result = native(initial);
+    result.api.previewMaterial = vi.fn(async () => pdfReply());
+    return { ...result, initial };
+  };
+  const openPdf = async (name = "A") => {
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: `Abrir Arquivo ${name}.pdf` })),
+    );
+  };
+  beforeEach(() => {
+    let sequence = 0;
+    createUrl.mockReset().mockImplementation(() => `blob:ninho-pdf-${++sequence}`);
+    revokeUrl.mockReset();
+    vi.stubGlobal("URL", class extends OriginalURL {
+      static createObjectURL = createUrl;
+      static revokeObjectURL = revokeUrl;
+    });
+  });
+
+  it("preserva todos os bytes de um PDF grande sem colocar base64 no endereço do iframe", async () => {
+    const bytes = Uint8Array.from({ length: 3 * 1024 * 1024 }, (_, index) => index % 256);
+    const { api } = pdfNative();
+    api.previewMaterial = vi.fn(async () => pdfReply(Buffer.from(bytes).toString("base64")));
+    await mount(api);
+    await openPdf();
+    expect(screen.getByTitle("Prévia de Arquivo A.pdf")).toHaveAttribute("src", "blob:ninho-pdf-1");
+    expect(createUrl).toHaveBeenCalledTimes(1);
+    const blob = createUrl.mock.calls[0][0];
+    expect(blob.type).toBe("application/pdf");
+    expect(blob.size).toBe(bytes.length);
+    const copied = await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(blob);
+    });
+    expect(Buffer.from(copied).equals(Buffer.from(bytes))).toBe(true);
+    expect(revokeUrl).not.toHaveBeenCalled();
+  });
+
+  it("mantém a prévia ao editar e salvar notas e libera o endereço ao fechar", async () => {
+    const { api } = pdfNative();
+    await mount(api);
+    await openPdf();
+    fireEvent.change(screen.getByLabelText("Anotações do material"), { target: { value: "Retomar página 42" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Salvar material" })));
+    expect(createUrl).toHaveBeenCalledTimes(1);
+    expect(revokeUrl).not.toHaveBeenCalled();
+    expect(screen.getByTitle("Prévia de Arquivo A.pdf")).toHaveAttribute("src", "blob:ninho-pdf-1");
+    fireEvent.click(screen.getByRole("button", { name: "Fechar janela" }));
+    expect(revokeUrl).toHaveBeenCalledExactlyOnceWith("blob:ninho-pdf-1");
+    await openPdf("B");
+    expect(screen.getByTitle("Prévia de Arquivo B.pdf")).toHaveAttribute("src", "blob:ninho-pdf-2");
+    expect(revokeUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["escopo", "desmontagem"])("libera o PDF aberto na mudança de %s", async (reason) => {
+    const { api } = pdfNative();
+    const view = await mount(api, "banco-de-dados");
+    await openPdf();
+    await act(async () => {
+      if (reason === "desmontagem") view.unmount();
+      else view.rerender(<AppProvider nativeApi={api}><Materials subjectId="literatura" embedded /></AppProvider>);
+    });
+    expect(revokeUrl).toHaveBeenCalledExactlyOnceWith("blob:ninho-pdf-1");
+    expect(screen.queryByTitle("Prévia de Arquivo A.pdf")).not.toBeInTheDocument();
+  });
+
+  it.each(["fechar", "escopo", "desmontagem"])("ignora bytes atrasados sem criar endereço depois de %s", async (reason) => {
+    const { api } = pdfNative();
+    let done!: (preview: MaterialPreview) => void;
+    api.previewMaterial = vi.fn(() => new Promise<MaterialPreview>((resolve) => { done = resolve; }));
+    const view = await mount(api, "banco-de-dados");
+    fireEvent.click(screen.getByRole("button", { name: "Abrir Arquivo A.pdf" }));
+    await act(async () => {
+      if (reason === "desmontagem") view.unmount();
+      else if (reason === "fechar") fireEvent.click(screen.getByRole("button", { name: "Fechar janela" }));
+      else view.rerender(<AppProvider nativeApi={api}><Materials subjectId="literatura" embedded /></AppProvider>);
+    });
+    await act(async () => done(pdfReply()));
+    expect(createUrl).not.toHaveBeenCalled();
+    expect(revokeUrl).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("o PDF atrasado de outro arquivo não substitui nem revoga a prévia atual", async () => {
+    const { api } = pdfNative();
+    let oldDone!: (preview: MaterialPreview) => void;
+    api.previewMaterial = vi.fn().mockImplementationOnce(() => new Promise<MaterialPreview>((resolve) => { oldDone = resolve; })).mockResolvedValueOnce(pdfReply());
+    await mount(api);
+    fireEvent.click(screen.getByRole("button", { name: "Abrir Arquivo A.pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fechar janela" }));
+    await openPdf("B");
+    await act(async () => oldDone(pdfReply(btoa("%PDF-1.7\nAntigo"))));
+    expect(createUrl).toHaveBeenCalledTimes(1);
+    expect(revokeUrl).not.toHaveBeenCalled();
+    expect(screen.getByTitle("Prévia de Arquivo B.pdf")).toHaveAttribute("src", "blob:ninho-pdf-1");
+  });
+
+  it("permite repetir uma falha na criação da prévia sem perder o rascunho", async () => {
+    const { api } = pdfNative();
+    createUrl.mockImplementationOnce(() => { throw new Error("Memória temporária indisponível."); });
+    await mount(api);
+    await openPdf();
+    expect(screen.getByRole("alert")).toHaveTextContent("Memória temporária indisponível.");
+    expect(screen.queryByTitle("Prévia de Arquivo A.pdf")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Anotações do material"), { target: { value: "Meu rascunho" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Tentar prévia novamente" })));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByTitle("Prévia de Arquivo A.pdf")).toHaveAttribute("src", "blob:ninho-pdf-1");
+    expect(screen.getByLabelText("Anotações do material")).toHaveValue("Meu rascunho");
+    expect(createUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it("mostra erro para PDF sem conteúdo e mantém a abertura pelo Windows disponível", async () => {
+    const { api } = pdfNative();
+    api.previewMaterial = vi.fn(async () => pdfReply(""));
+    await mount(api);
+    await openPdf();
+    expect(screen.getByRole("alert")).toHaveTextContent("O conteúdo do PDF não está disponível para prévia.");
+    expect(createUrl).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Abrir no Windows" })).toBeEnabled();
+  });
 });
 
 describe("biblioteca com operações assíncronas", () => {
@@ -706,7 +850,9 @@ describe("materiais vinculados à aula", () => {
     )!;
     const { api, get } = native(initial);
     api.dispatch = vi.fn(async () => {
-      throw new Error("Não foi possível gravar agora.");
+      throw new Error(
+        "Error invoking remote method 'ninho:dispatch': Error: Não foi possível gravar agora.",
+      );
     });
     await mount(api);
     await act(async () =>
@@ -797,5 +943,272 @@ describe("materiais vinculados à aula", () => {
       id: "arquivo-a",
       patch: { notes: "Revisar normalização." },
     });
+  });
+});
+
+describe("falhas de arquivos sem mensagens brutas do Electron", () => {
+  it("Abrir no Windows mostra o motivo real e preserva o material no modal", async () => {
+    const { api, get } = native();
+    api.openMaterial = vi.fn(async () => {
+      throw new Error(
+        "Error invoking remote method 'ninho:material:open': Error: O arquivo está fora da biblioteca.",
+      );
+    });
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Abrir no Windows" })),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "O arquivo está fora da biblioteca.",
+    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent(
+      "Error invoking remote method",
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Arquivo A.txt" }),
+    ).toBeInTheDocument();
+    expect(get().materials).toHaveLength(2);
+  });
+
+  it("falha de prévia não é confundida com formato externo e a tentativa preserva notas e aula escolhida", async () => {
+    const initial = fixture();
+    const target = initial.lessons.find(
+      (lesson) =>
+        lesson.subjectId === initial.materials[0].subjectId &&
+        lesson.id !== initial.materials[0].lessonId,
+    )!;
+    const { api } = native(initial);
+    api.previewMaterial = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "Error invoking remote method 'ninho:material:preview': Error: Não foi possível ler resumo.txt.",
+        ),
+      )
+      .mockResolvedValueOnce({
+        kind: "text",
+        name: "Arquivo A.txt",
+        data: "Prévia recuperada",
+      });
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Não foi possível abrir a prévia.",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Não foi possível ler resumo.txt.",
+    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent(
+      "Error invoking remote method",
+    );
+    expect(
+      screen.queryByText("Abra com seu aplicativo favorito."),
+    ).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Anotações do material"), {
+      target: { value: "Meu rascunho ainda não salvo" },
+    });
+    fireEvent.change(screen.getByLabelText("Aula do material"), {
+      target: { value: target.id },
+    });
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Tentar prévia novamente" }),
+      ),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("Prévia recuperada")).toBeInTheDocument();
+    expect(screen.getByLabelText("Anotações do material")).toHaveValue(
+      "Meu rascunho ainda não salvo",
+    );
+    expect(screen.getByLabelText("Aula do material")).toHaveValue(target.id);
+  });
+
+  it("uma importação que rejeita sem Error não quebra a tela e permite tentar outra vez", async () => {
+    const { api } = native();
+    api.importMaterials = vi.fn(async () => {
+      throw null;
+    });
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Adicionar arquivos" }),
+      ),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Não foi possível importar os arquivos.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Adicionar arquivos" }),
+    ).toBeEnabled();
+    expect(screen.getByTestId("material-row-arquivo-a")).toBeInTheDocument();
+  });
+
+  it.each(["prévia", "gravação"])(
+    "prévia e salvamento mantêm o formulário consistente quando %s termina primeiro",
+    async (first) => {
+      const initial = fixture();
+      const target = initial.lessons.find(
+        (lesson) =>
+          lesson.subjectId === initial.materials[0].subjectId &&
+          lesson.id !== initial.materials[0].lessonId,
+      )!;
+      const { api } = native(initial);
+      let previewDone!: (value: MaterialPreview) => void;
+      let saveDone!: (value: AppState) => void;
+      const updated = applyCommand(initial, {
+        type: "material.update",
+        id: "arquivo-a",
+        patch: { notes: "Rascunho salvo", lessonId: target.id },
+      });
+      api.previewMaterial = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("Não foi possível ler agora."))
+        .mockImplementationOnce(
+          () =>
+            new Promise<MaterialPreview>((resolve) => {
+              previewDone = resolve;
+            }),
+        );
+      api.dispatch = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<AppState>((resolve) => {
+              saveDone = resolve;
+            }),
+        )
+        .mockImplementationOnce(async (command) =>
+          applyCommand(updated, command),
+        );
+      await mount(api);
+      await act(async () =>
+        fireEvent.click(
+          screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+        ),
+      );
+      fireEvent.change(screen.getByLabelText("Anotações do material"), {
+        target: { value: "Rascunho salvo" },
+      });
+      fireEvent.change(screen.getByLabelText("Aula do material"), {
+        target: { value: target.id },
+      });
+      if (first === "prévia")
+        fireEvent.click(
+          screen.getByRole("button", { name: "Tentar prévia novamente" }),
+        );
+      fireEvent.click(screen.getByRole("button", { name: "Salvar material" }));
+      expect(screen.getByRole("button", { name: "Salvando…" })).toBeDisabled();
+      const preview = {
+        kind: "text" as const,
+        name: "Arquivo A.txt",
+        data: "Prévia refeita",
+      };
+      if (first === "prévia") {
+        await act(async () => previewDone(preview));
+        expect(
+          screen.getByRole("button", { name: "Salvando…" }),
+        ).toBeDisabled();
+        await act(async () => saveDone(updated));
+      } else {
+        const retry = screen.getByRole("button", {
+          name: "Tentar prévia novamente",
+        });
+        expect(retry).toBeDisabled();
+        fireEvent.click(retry);
+        expect(api.previewMaterial).toHaveBeenCalledTimes(1);
+        await act(async () => saveDone(updated));
+        expect(
+          screen.getByRole("button", { name: "Salvar material" }),
+        ).toBeEnabled();
+        expect(retry).toBeEnabled();
+        fireEvent.click(retry);
+        await act(async () => previewDone(preview));
+      }
+      expect(api.previewMaterial).toHaveBeenCalledTimes(2);
+      expect(
+        screen.getByRole("button", { name: "Salvar material" }),
+      ).toBeEnabled();
+      expect(screen.getByLabelText("Anotações do material")).toHaveValue(
+        "Rascunho salvo",
+      );
+      expect(screen.getByLabelText("Aula do material")).toHaveValue(target.id);
+      expect(screen.getByText("Prévia refeita")).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText("Anotações do material"), {
+        target: { value: "" },
+      });
+      await act(async () =>
+        fireEvent.click(
+          screen.getByRole("button", { name: "Salvar material" }),
+        ),
+      );
+      expect(api.dispatch).toHaveBeenLastCalledWith({
+        type: "material.update",
+        id: "arquivo-a",
+        patch: { notes: "" },
+      });
+    },
+  );
+
+  it("fechar durante salvamento e nova prévia invalida os dois retornos sem reabrir o modal", async () => {
+    const initial = fixture();
+    const { api } = native(initial);
+    let previewDone!: (value: MaterialPreview) => void;
+    let saveDone!: (value: AppState) => void;
+    api.previewMaterial = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Leitura falhou."))
+      .mockImplementationOnce(
+        () =>
+          new Promise<MaterialPreview>((resolve) => {
+            previewDone = resolve;
+          }),
+      );
+    api.dispatch = vi.fn(
+      () =>
+        new Promise<AppState>((resolve) => {
+          saveDone = resolve;
+        }),
+    );
+    await mount(api);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Abrir Arquivo A.txt" }),
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Anotações do material"), {
+      target: { value: "Nota salva" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Tentar prévia novamente" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Salvar material" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fechar janela" }));
+    await act(async () =>
+      saveDone(
+        applyCommand(initial, {
+          type: "material.update",
+          id: "arquivo-a",
+          patch: { notes: "Nota salva" },
+        }),
+      ),
+    );
+    await act(async () =>
+      previewDone({
+        kind: "text",
+        name: "Arquivo A.txt",
+        data: "Não deve reaparecer",
+      }),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText("Não deve reaparecer")).not.toBeInTheDocument();
   });
 });

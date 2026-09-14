@@ -350,7 +350,20 @@ export class StudyStore {
     const material = state.materials.find((item) => item.id === id);
     if (!material) throw new Error("Este arquivo não está mais na biblioteca.");
     const file = managedPath(this.materialsDirectory, material.storedName);
-    const stat = await fs.lstat(file).catch((error) => {
+    const directoryStat = await fs
+      .lstat(this.materialsDirectory)
+      .catch((error) => {
+        if (isMissing(error))
+          throw new Error(
+            "A pasta de materiais não foi encontrada. Restaure um backup que contenha seus anexos.",
+          );
+        throw error;
+      });
+    if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink())
+      throw new Error(
+        "A pasta de materiais não pode ser um atalho ou link simbólico.",
+      );
+    const stat = await fs.lstat(file, { bigint: true }).catch((error) => {
       if (isMissing(error))
         throw new Error(
           "O arquivo da biblioteca não foi encontrado. Restaure um backup que contenha seus anexos.",
@@ -359,11 +372,22 @@ export class StudyStore {
     });
     if (!stat.isFile() || stat.isSymbolicLink())
       throw new Error("O anexo não é um arquivo válido da biblioteca.");
-    const realDirectory = await fs.realpath(this.materialsDirectory);
     const realFile = await fs.realpath(file);
-    if (path.dirname(realFile).toLowerCase() !== realDirectory.toLowerCase())
-      throw new Error("O arquivo está fora da biblioteca.");
-    return { material, file };
+    const resolvedStat = await fs.lstat(realFile, { bigint: true });
+    // Windows may merge a physical AppData directory with MSIX-redirected
+    // files. Their canonical parents need not match. Validate the registered
+    // direct child and its file identity instead; never infer a package path.
+    if (
+      !resolvedStat.isFile() ||
+      resolvedStat.isSymbolicLink() ||
+      resolvedStat.dev !== stat.dev ||
+      resolvedStat.ino !== stat.ino
+    )
+      throw new Error(
+        "O arquivo foi alterado durante a abertura. Tente novamente.",
+      );
+    // The default Windows reader may run outside the package's virtual view.
+    return { material, file: realFile };
   }
 
   resolveMaterial(id: string): Promise<string> {
@@ -422,6 +446,90 @@ export class StudyStore {
     });
   }
 
+  private async auditPreviousMaterials(state: AppState): Promise<{
+    available: Material[];
+    missing: number;
+    damaged: number;
+  }> {
+    const result = { available: [] as Material[], missing: 0, damaged: 0 };
+    for (const material of state.materials) {
+      const file = managedPath(this.materialsDirectory, material.storedName);
+      const extension = materialExtension(material.storedName);
+      const stat = await fs.lstat(file, { bigint: true }).catch((error) => {
+        if (isMissing(error)) return undefined;
+        throw error;
+      });
+      if (!stat) {
+        result.missing++;
+        continue;
+      }
+      if (
+        !stat.isFile() ||
+        stat.isSymbolicLink() ||
+        stat.size !== BigInt(material.size) ||
+        stat.size > BigInt(materialLimit(extension))
+      ) {
+        result.damaged++;
+        continue;
+      }
+      const handle = await fs.open(file, constants.O_RDONLY).catch((error) => {
+        if (isMissing(error)) return undefined;
+        throw error;
+      });
+      if (!handle) {
+        result.missing++;
+        continue;
+      }
+      let header: Buffer;
+      try {
+        const opened = await handle.stat({ bigint: true });
+        if (
+          !opened.isFile() ||
+          opened.dev !== stat.dev ||
+          opened.ino !== stat.ino ||
+          opened.size !== stat.size
+        )
+          throw new Error(
+            "Um anexo mudou durante a verificação de segurança. Tente restaurar novamente.",
+          );
+        // This audit reads at most 8 KiB even for multi-gigabyte videos.
+        // The subsequent safety ZIP still streams and verifies every good file.
+        header = Buffer.alloc(Math.min(material.size, 8192));
+        let offset = 0;
+        while (offset < header.length) {
+          const { bytesRead } = await handle.read(
+            header,
+            offset,
+            header.length - offset,
+            offset,
+          );
+          if (!bytesRead)
+            throw new Error(
+              "Um anexo mudou durante a verificação de segurança. Tente restaurar novamente.",
+            );
+          offset += bytesRead;
+        }
+        const checked = await handle.stat({ bigint: true });
+        if (checked.size !== opened.size || checked.mtimeNs !== opened.mtimeNs)
+          throw new Error(
+            "Um anexo mudou durante a verificação de segurança. Tente restaurar novamente.",
+          );
+      } finally {
+        await handle.close();
+      }
+      try {
+        assertFileContent(extension, header);
+      } catch {
+        // Only the pure signature validator is caught. Filesystem errors and
+        // failures of the safety backup must abort before the active index changes.
+        result.damaged++;
+        continue;
+      }
+      result.available.push(material);
+    }
+    return result;
+  }
+
   restoreBackup(source: string): Promise<AppState> {
     return this.serial(async () => {
       if (!path.isAbsolute(source))
@@ -431,6 +539,7 @@ export class StudyStore {
       try {
         // Nothing in the active collection changes until every streamed entry is verified.
         const restored = await readBackupFile(source, staging);
+        let restorationNotice: string | undefined;
         let oldState: AppState | undefined;
         try {
           oldState = await this.loadUnlocked();
@@ -439,24 +548,13 @@ export class StudyStore {
         }
         if (oldState) {
           const safetyName = `antes-de-restaurar-${timestamp()}-${randomUUID()}`;
-          try {
+          const audit = await this.auditPreviousMaterials(oldState);
+          if (!audit.missing && !audit.damaged) {
             await this.backupFile(
               oldState,
               path.join(this.backupsDirectory, `${safetyName}.zip`),
             );
-          } catch (error) {
-            if (!isMissing(error)) throw error;
-            const available: Material[] = [];
-            for (const material of oldState.materials) {
-              try {
-                await fs.access(
-                  managedPath(this.materialsDirectory, material.storedName),
-                );
-                available.push(material);
-              } catch (missingError) {
-                if (!isMissing(missingError)) throw missingError;
-              }
-            }
+          } else {
             await atomicWrite(
               path.join(
                 this.backupsDirectory,
@@ -465,13 +563,23 @@ export class StudyStore {
               JSON.stringify(oldState, null, 2),
             );
             await this.backupFile(
-              { ...oldState, materials: available },
+              { ...oldState, materials: audit.available },
               path.join(
                 this.backupsDirectory,
                 `${safetyName}-anexos-disponiveis.zip`,
               ),
             );
-            this.recoveryNotice = `Alguns anexos da coleção anterior já estavam ausentes. Preservamos o índice original e todos os arquivos disponíveis em ${this.backupsDirectory}. O backup selecionado foi restaurado.`;
+            restorationNotice = [
+              audit.missing
+                ? `${audit.missing} anexo(s) da coleção anterior já estavam ausentes.`
+                : "",
+              audit.damaged
+                ? `${audit.damaged} anexo(s) apresentavam tamanho ou formato inválido. Esses arquivos foram mantidos sem alteração em ${this.materialsDirectory}.`
+                : "",
+              `Preservamos o índice original e um backup dos anexos válidos em ${this.backupsDirectory}. O backup selecionado foi restaurado.`,
+            ]
+              .filter(Boolean)
+              .join(" ");
           }
         } else {
           for (const file of [this.stateFile, this.previousFile]) {
@@ -506,7 +614,9 @@ export class StudyStore {
             createdFiles.push(destination);
             material.storedName = storedName;
           }
-          return await this.commit(restored.state);
+          const committed = await this.commit(restored.state);
+          if (restorationNotice) this.recoveryNotice = restorationNotice;
+          return committed;
         } catch (error) {
           await Promise.all(
             createdFiles.map((file) => fs.rm(file, { force: true })),

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { Material, MaterialPreview } from "../shared/types";
 import { useApp } from "./store";
+import { errorMessage } from "./errors";
 import {
   Confirm,
   Empty,
@@ -51,25 +52,39 @@ export default function Materials({
   const [importing, setImporting] = useState(false);
   const [selected, setSelected] = useState<Material | null>(null);
   const [preview, setPreview] = useState<MaterialPreview | null>(null);
+  const [previewError, setPreviewError] = useState("");
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState("");
   const [linkedSubject, setLinkedSubject] = useState("");
   const [linkedLesson, setLinkedLesson] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Material | null>(null);
+  const modalGeneration = useRef(0);
   const previewRequest = useRef(0);
+  const pdfObjectUrl = useRef<string | null>(null);
   const importPending = useRef(false);
   const savesPending = useRef(new Set<string>());
+  const releasePdfUrl = () => {
+    if (pdfObjectUrl.current) {
+      URL.revokeObjectURL(pdfObjectUrl.current);
+      pdfObjectUrl.current = null;
+    }
+  };
   useEffect(
     () => () => {
+      modalGeneration.current++;
       previewRequest.current++;
+      releasePdfUrl();
     },
     [],
   );
   useEffect(() => {
+    modalGeneration.current++;
     previewRequest.current++;
+    releasePdfUrl();
     setSelected(null);
     setPreview(null);
+    setPreviewError("");
     setLoading(false);
     setSaving(false);
     setDeleting(null);
@@ -91,18 +106,51 @@ export default function Materials({
         notify("Seus materiais estão guardados.");
       }
     } catch (e) {
-      notify((e as Error).message, true);
+      notify(errorMessage(e, "Não foi possível importar os arquivos."), true);
     } finally {
       importPending.current = false;
       setImporting(false);
     }
   };
   const closePreview = () => {
+    modalGeneration.current++;
     previewRequest.current++;
+    releasePdfUrl();
     setSelected(null);
     setPreview(null);
+    setPreviewError("");
     setLoading(false);
     setSaving(false);
+  };
+  const readPreview = async (material: Material) => {
+    const request = ++previewRequest.current;
+    releasePdfUrl();
+    setPreview(null);
+    setPreviewError("");
+    setLoading(true);
+    try {
+      const result = await api.previewMaterial(material.id);
+      if (request !== previewRequest.current) return;
+      if (result.kind === "pdf") {
+        if (!result.data)
+          throw new Error("O conteúdo do PDF não está disponível para prévia.");
+        const binary = atob(result.data);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index++)
+          bytes[index] = binary.charCodeAt(index);
+        // The PDF viewer cannot navigate large data URLs. Keep the URL short
+        // and retain its bytes only while this preview is open.
+        pdfObjectUrl.current = URL.createObjectURL(
+          new Blob([bytes], { type: "application/pdf" }),
+        );
+        setPreview({ ...result, data: undefined, url: pdfObjectUrl.current });
+      } else setPreview(result);
+    } catch (e) {
+      if (request === previewRequest.current)
+        setPreviewError(errorMessage(e, "Não foi possível ler este arquivo."));
+    } finally {
+      if (request === previewRequest.current) setLoading(false);
+    }
   };
   const open = async (material: Material) => {
     if (savesPending.current.has(material.id)) {
@@ -111,26 +159,16 @@ export default function Materials({
       );
       return;
     }
-    const request = ++previewRequest.current;
+    modalGeneration.current++;
     setSelected(material);
     setNotes(material.notes);
     setLinkedSubject(material.subjectId);
     setLinkedLesson(material.lessonId);
     setSaving(false);
-    setPreview(null);
-    setLoading(true);
-    try {
-      const result = await api.previewMaterial(material.id);
-      if (request === previewRequest.current) setPreview(result);
-    } catch (e) {
-      if (request === previewRequest.current)
-        notify((e as Error).message, true);
-    } finally {
-      if (request === previewRequest.current) setLoading(false);
-    }
+    await readPreview(material);
   };
   const saveMaterial = async () => {
-    const request = previewRequest.current;
+    const generation = modalGeneration.current;
     if (!selected || savesPending.current.has(selected.id)) return;
     const materialId = selected.id;
     savesPending.current.add(materialId);
@@ -153,13 +191,13 @@ export default function Materials({
             : {}),
         },
       });
-      if (request === previewRequest.current) setSelected(updated);
+      if (generation === modalGeneration.current) setSelected(updated);
       notify("Material atualizado.");
     } catch {
       // The store reports the error and preserves the unsaved fields.
     } finally {
       savesPending.current.delete(materialId);
-      if (request === previewRequest.current) setSaving(false);
+      if (generation === modalGeneration.current) setSaving(false);
     }
   };
   const lessonLabel = (id: string) => {
@@ -362,10 +400,28 @@ export default function Materials({
             <div className="document-preview">
               {loading ? (
                 <p>Preparando prévia…</p>
+              ) : previewError ? (
+                <div role="alert">
+                  <Empty
+                    title="Não foi possível abrir a prévia."
+                    text={previewError}
+                    icon={<File size={28} />}
+                  />
+                  <button
+                    className="button secondary"
+                    disabled={saving}
+                    onClick={() => {
+                      if (!savesPending.current.has(selected.id))
+                        void readPreview(selected);
+                    }}
+                  >
+                    Tentar prévia novamente
+                  </button>
+                </div>
               ) : preview?.kind === "pdf" ? (
                 <iframe
                   title={`Prévia de ${selected.name}`}
-                  src={`data:application/pdf;base64,${preview.data}`}
+                  src={preview.url}
                 />
               ) : preview?.kind === "image" ? (
                 <img
@@ -382,7 +438,15 @@ export default function Materials({
                   action={() =>
                     void api
                       .openMaterial(selected.id)
-                      .catch((e) => notify(e.message, true))
+                      .catch((e) =>
+                        notify(
+                          errorMessage(
+                            e,
+                            "Não foi possível abrir o arquivo no Windows.",
+                          ),
+                          true,
+                        ),
+                      )
                   }
                   label="Abrir no Windows"
                 />
@@ -444,7 +508,15 @@ export default function Materials({
                 onClick={() =>
                   void api
                     .openMaterial(selected.id)
-                    .catch((e) => notify(e.message, true))
+                    .catch((e) =>
+                      notify(
+                        errorMessage(
+                          e,
+                          "Não foi possível abrir o arquivo no Windows.",
+                        ),
+                        true,
+                      ),
+                    )
                 }
               >
                 Abrir no Windows

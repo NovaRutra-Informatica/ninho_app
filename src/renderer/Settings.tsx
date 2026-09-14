@@ -239,7 +239,7 @@ export default function Settings() {
         </div>
       </article>
       <p className="version-line">
-        Ninho 1.1.2 · Feito para o seu próximo passo · Windows 11
+        Ninho 1.1.3 · Feito para o seu próximo passo · Windows 11
       </p>
       {restore && (
         <Confirm

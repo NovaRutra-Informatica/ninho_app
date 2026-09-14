@@ -138,7 +138,7 @@ test("materiais da matéria mantêm o contexto e aceitam vídeo e áudio pessoai
     () => (globalThis as unknown as { openedMedia: string[] }).openedMedia,
   );
   expect(opened).toEqual([
-    path.join(ninho.dataDir, "materials", video.storedName),
+    await fs.realpath(path.join(ninho.dataDir, "materials", video.storedName)),
   ]);
   expect(await fs.readFile(opened[0])).toEqual(Buffer.from(videoBytes));
   await modal

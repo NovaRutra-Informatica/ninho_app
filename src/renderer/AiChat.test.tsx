@@ -170,12 +170,17 @@ describe("conversa real da Íris pela ponte nativa", () => {
   it("falha do servidor aparece e mantém o rascunho", async () => {
     fixture({
       aiChat: vi.fn(async () => {
-        throw new Error("Servidor indisponível");
+        throw new Error(
+          "Error invoking remote method 'ninho:ai:chat': Error: Servidor indisponível",
+        );
       }),
     });
     await ask("Teste");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Servidor indisponível",
+    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent(
+      "Error invoking remote method",
     );
     expect(
       screen.getByRole("textbox", { name: "Converse com Íris" }),
@@ -254,5 +259,92 @@ describe("conversa real da Íris pela ponte nativa", () => {
     expect(
       screen.queryByRole("button", { name: "Enviar à Íris" }),
     ).not.toBeInTheDocument();
+  });
+  it("erro ao consultar a conexão mantém a orientação sem o envelope IPC", async () => {
+    fixture({
+      aiStatus: vi.fn(async () => {
+        throw new Error(
+          "Error invoking remote method 'ninho:ai:status': Error: Abra o LM Studio e tente novamente.",
+        );
+      }),
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Abra o LM Studio e tente novamente.",
+    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent(
+      "Error invoking remote method",
+    );
+    expect(
+      screen.getByRole("button", { name: "Atualizar conexão da IA" }),
+    ).toBeEnabled();
+  });
+  it("normaliza o erro informado dentro do status do modelo", async () => {
+    fixture({
+      aiStatus: vi.fn(async () =>
+        status({
+          available: false,
+          error:
+            "Error invoking remote method 'ninho:ai:status': Error: Modelo temporariamente indisponível.",
+        }),
+      ),
+    });
+    await ready();
+    expect(
+      screen.getByText(/Modelo temporariamente indisponível/),
+    ).not.toHaveTextContent("Error invoking remote method");
+  });
+
+  it("remove o erro de conexão quando Atualizar recupera o LM Studio", async () => {
+    const getStatus = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "Error invoking remote method 'ninho:ai:status': Error: Não foi possível conectar.",
+        ),
+      )
+      .mockResolvedValueOnce(status());
+    fixture({ aiStatus: getStatus });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Não foi possível conectar.",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Atualizar conexão da IA" }),
+    );
+    await ready();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText(/LM Studio conectado/)).toBeInTheDocument();
+  });
+
+  it("uma consulta antiga não restaura o estado do modelo após liberar memória", async () => {
+    let stale!: (value: AiStatus) => void;
+    const getStatus = vi
+      .fn()
+      .mockResolvedValueOnce(status({ ownedModel: "qwen4b" }))
+      .mockImplementationOnce(
+        () =>
+          new Promise<AiStatus>((resolve) => {
+            stale = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(status({ ownedModel: null }));
+    fixture({ aiStatus: getStatus });
+    await ready();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Atualizar conexão da IA" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Liberar memória" }));
+    await waitFor(() => expect(getStatus).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Liberar memória" }),
+      ).not.toBeInTheDocument(),
+    );
+    await act(async () => stale(status({ ownedModel: "qwen4b" })));
+    expect(
+      screen.queryByRole("button", { name: "Liberar memória" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Atualizar conexão da IA" }),
+    ).toBeEnabled();
   });
 });

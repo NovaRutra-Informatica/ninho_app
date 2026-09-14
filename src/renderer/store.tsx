@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { AppState, Command, NativeApi } from "../shared/types";
 import { applyCommand, createInitialState, validateState } from "../domain";
+import { errorMessage } from "./errors";
 
 const unavailable = async (): Promise<never> => {
   throw new Error(
@@ -64,13 +65,21 @@ export function AppProvider({
     id: number;
   } | null>(null);
   const notify = (text: string, error = false) =>
-    setToast({ text, error, id: Date.now() });
+    setToast({
+      text: error ? errorMessage(text) : text,
+      error,
+      id: Date.now(),
+    });
   useEffect(() => {
     let live = true;
     api
       .load()
       .then((data) => live && setState(data))
-      .catch((e) => live && setError(String(e.message || e)));
+      .catch(
+        (e) =>
+          live &&
+          setError(errorMessage(e, "Não foi possível abrir seus dados.")),
+      );
     return () => {
       live = false;
     };
@@ -85,7 +94,7 @@ export function AppProvider({
     try {
       setState(await api.dispatch(command));
     } catch (e) {
-      notify((e as Error).message, true);
+      notify(errorMessage(e), true);
       throw e;
     } finally {
       setPending((n) => n - 1);

@@ -35,8 +35,11 @@ O objetivo é abrir o Ninho e saber o que estudar hoje, sem configurar um sistem
 - Importar PDF e texto por seletor de arquivos, associá-los a uma matéria e abri-los na biblioteca.
 - Copiar os arquivos para o armazenamento do Ninho; o material permanece utilizável se o original for movido.
 - Exibir prévia de PDF e texto, ou explicar quando é necessário abrir no aplicativo padrão.
+- Renderizar o conteúdo da página principal de PDFs pequenos e grandes (fixture de 12 MiB), inclusive após reabrir o Ninho. Iframe, toolbar e miniaturas carregados não bastam como evidência de uma prévia legível.
 - Alterar anotações e associação do material; remover um item sem excluir o arquivo original.
 - Cancelar a importação sem alterar a biblioteca; tratar arquivos ausentes, inválidos ou grandes demais com mensagem útil.
+- Abrir PDFs existentes pelo caminho físico correto quando o Windows virtualiza AppData ou o perfil usa um alias de diretório. Não confundir alias legítimo com arquivo fora da biblioteca.
+- Diante de um anexo ausente, não chamar o leitor externo nem alterar dados; permitir tentar a prévia novamente preservando o rascunho das anotações.
 - Abrir os materiais dentro de uma matéria, importar já com esse vínculo e não mostrar anexos de outra matéria. Preservar a aba e a seleção após importar ou salvar anotações.
 - Aceitar vídeos e áudios pessoais, copiá-los para a biblioteca e encaminhar a cópia ao aplicativo padrão do Windows. Filtrar vídeos e áudios separadamente. Não baixar vídeo da plataforma de cursos.
 - Encontrar **Materiais (N)** na linha da aula e **Materiais desta aula** nos detalhes. Importar um arquivo com qualquer nome diretamente naquela aula, sem mostrá-lo em outras aulas.
@@ -77,6 +80,7 @@ O objetivo é abrir o Ninho e saber o que estudar hoje, sem configurar um sistem
 - Recuperar preferências, notas, provas, tarefas, revisões e materiais após reiniciar o aplicativo.
 - Exportar um backup que inclua dados e anexos; restaurá-lo após confirmação, recuperando o conteúdo esperado.
 - Cancelar a exportação/restauração sem perda de dados. Rejeitar backup inválido sem destruir o perfil atual.
+- Restaurar um backup válido mesmo quando um PDF atual está danificado, recuperando seus bytes e preservando a cópia danificada anterior.
 - Não abrir caminhos arbitrários, scripts ou URLs de protocolos perigosos. O conteúdo de cartões e anotações aparece como texto, não como código executável.
 - Migrar perfis v1 para cursos → matérias → módulos → aulas preservando IDs, anotações, revisões, agendamentos, anexos, provas, tarefas, sessões e preferências.
 

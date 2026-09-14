@@ -1,4 +1,8 @@
-# Validação de interface do Ninho 1.1.2
+# Validação de interface do Ninho 1.1.3
+
+Em 14/09/2026, a suíte completa do **build final 1.1.3 aprovou 32/32 cenários E2E**, em 9,6 minutos, com dois workers: nenhuma falha, nenhum cenário pulado e nenhuma exceção não tratada no renderer. A validação do build também aprovou 471 testes de lógica, serviços e componentes; TypeScript sem erros.
+
+As regressões novas usaram filesystem real em AppData virtualizado e junction com caixa mista. Um PDF existente abriu pelo caminho físico canônico, preservando prévia, associação, importação, backup e persistência. Arquivo ausente não acionou o leitor externo; a prévia pôde ser recuperada mantendo o rascunho. Um backup válido restaurou o PDF danificado sob UUID novo, mantendo intacta a cópia danificada anterior. Somente os diálogos e `shell.openPath` foram controlados; o resolver e as operações de arquivo não foram simulados. O smoke do executável instalado 1.1.3 é registrado separadamente na entrega.
 
 Em 14/09/2026, a suíte completa no build 1.1.1 aprovou **26 de 26 cenários**, em 13,5 minutos, com janelas ocultas. TypeScript também terminou sem erros.
 
@@ -16,8 +20,13 @@ A biblioteca dentro de uma matéria conservou o contexto após importação e ed
 
 UI, persistência e ponte IPC são reais. Seletores nativos e chamadas que abririam outros aplicativos têm respostas controladas. O HTTP do LM Studio é simulado antes de iniciar o processo principal: os testes verificam seleção de modelo, contexto real da matéria no prompt, histórico, resposta livre, indisponibilidade, erro, cancelamento, nova conversa e preservação do progresso. Esses cenários não carregam modelos reais nem demonstram qualidade de respostas do modelo instalado. A verificação do LM Studio instalado pertence à etapa de entrega.
 
-A verificação visual identificou e corrigiu o posicionamento de modais dentro de elementos animados. Os testes exigem que o modal do PDF fique integralmente dentro da janela e aguardam o visualizador mostrar página 1 e sua miniatura. A captura do PDF na biblioteca global mostra o documento renderizado. No novo cenário por aula, a captura do modal ocorreu com a superfície do PDF ainda preta, apesar de os controles do visualizador terem carregado; essa imagem não é usada como evidência visual da página renderizada. A seção de materiais da aula foi inspecionada e está legível. O tema escuro é verificado pela cor efetivamente aplicada, além da preferência salva.
+A verificação visual anterior corrigiu o posicionamento de modais dentro de elementos animados. Os testes exigem que o modal do PDF fique integralmente dentro da janela. Na rodada 1.1.2, a captura por aula ocorreu com a superfície do PDF ainda preta, apesar de os controles terem carregado; essa imagem não comprova a pintura da página. A seção de materiais da aula foi inspecionada e está legível. O tema escuro é verificado pela cor efetivamente aplicada, além da preferência salva.
 
+A rodada inicial 1.1.3, com 31 cenários, não cobria PDF grande nem exigia pixels do conteúdo. Uma regressão adicional reproduziu a falha: PDF pequeno legível e PDF sintético válido de 12 MiB inteiramente branco com endereço `data:`. Depois da correção para `blob:`, o teste passou com ambos os tamanhos e com o grande após reiniciar. A captura nativa recorta o plugin principal, exclui miniaturas e toolbar e exige os dois blocos vetoriais coloridos da página. O teste isolado passou e foi repetido dentro da suíte final de 32; as execuções não são somadas como cenários distintos.
+
+- Suíte final 1.1.3: [abrir relatório](../test-results/e2e-v1.1.3-final-report/index.html).
+- Rodada inicial 1.1.3, antes da regressão de PDF grande: [relatório histórico](../test-results/e2e-v1.1.3-report/index.html).
+- PDF grande: [falha antes da correção](../test-results/pdf-render-before-report/index.html) e [pintura após a correção](../test-results/pdf-render-after-report/index.html).
 - Suíte completa 1.1.1: [abrir relatório](../test-results/e2e-v1.1.1-report/index.html).
 - Regressão 1.1.2: [abrir relatório](../test-results/e2e-v1.1.2-report/index.html).
 - Executável instalado: `test-results/packaged/result.json`.

@@ -3,6 +3,7 @@ import { Cpu, RefreshCw, Send, Sparkles, Square, Trash2 } from "lucide-react";
 import type { AiChatRequest, AiStatus } from "../shared/types";
 import { useApp } from "./store";
 import { scrollBehavior } from "./motion";
+import { errorMessage } from "./errors";
 
 type Message = AiChatRequest["messages"][number];
 const suggestions = [
@@ -37,19 +38,23 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
+  const [connectionError, setConnectionError] = useState("");
   const [working, setWorking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const pending = useRef<string | null>(null);
+  const refreshRequest = useRef(0);
   const alive = useRef(true);
   const lastMessage = useRef<HTMLDivElement>(null);
   const available = Boolean(api.aiChat && api.aiStatus);
 
   const refresh = async () => {
     if (!api.aiStatus) return;
+    const request = ++refreshRequest.current;
     setRefreshing(true);
     try {
       const value = await api.aiStatus();
-      if (!alive.current) return;
+      if (!alive.current || request !== refreshRequest.current) return;
+      setConnectionError("");
       setStatus(value);
       setModelId((selected) =>
         value.models.some(
@@ -59,9 +64,16 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
           : value.models.find((model) => !model.blockedReason)?.id || "",
       );
     } catch (failure) {
-      if (alive.current) setError((failure as Error).message);
+      if (alive.current && request === refreshRequest.current)
+        setConnectionError(
+          errorMessage(
+            failure,
+            "Não foi possível verificar a conexão com o LM Studio.",
+          ),
+        );
     } finally {
-      if (alive.current) setRefreshing(false);
+      if (alive.current && request === refreshRequest.current)
+        setRefreshing(false);
     }
   };
   useEffect(() => {
@@ -69,6 +81,7 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
     void refresh();
     return () => {
       alive.current = false;
+      refreshRequest.current++;
       if (pending.current)
         void api.aiCancel?.(pending.current).catch(() => undefined);
     };
@@ -119,9 +132,7 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
         ]);
     } catch (failure) {
       if (alive.current) {
-        setError(
-          (failure as Error).message || "Não foi possível responder agora.",
-        );
+        setError(errorMessage(failure, "Não foi possível responder agora."));
         setInput(text);
         setMessages((previous) => previous.slice(0, -1));
       }
@@ -138,7 +149,10 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
     try {
       await api.aiCancel?.(pending.current);
     } catch (failure) {
-      setError((failure as Error).message);
+      if (alive.current)
+        setError(
+          errorMessage(failure, "Não foi possível interromper a resposta."),
+        );
     }
   };
   const unload = async () => {
@@ -147,7 +161,13 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
       await api.aiUnload?.();
       await refresh();
     } catch (failure) {
-      setError((failure as Error).message);
+      if (alive.current)
+        setError(
+          errorMessage(
+            failure,
+            "Não foi possível liberar a memória do modelo.",
+          ),
+        );
     }
   };
   const submit = (event: FormEvent) => {
@@ -234,10 +254,12 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
             )}
           </div>
           <p className="ai-status" role="status">
-            {status?.error ||
+            {(status?.error ? errorMessage(status.error) : "") ||
               (status?.available
                 ? "LM Studio conectado."
-                : "Verificando o LM Studio…")}{" "}
+                : refreshing
+                  ? "Verificando o LM Studio…"
+                  : "LM Studio ainda não conectado.")}{" "}
             O modelo é carregado ao enviar e sai da memória após 5 minutos sem
             uso quando aberto pelo Ninho.
           </p>
@@ -293,9 +315,9 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
               ))}
             </div>
           )}
-          {error && (
+          {(error || connectionError) && (
             <p className="ai-error" role="alert">
-              {error}
+              {error || connectionError}
             </p>
           )}
           <form className="ai-composer" onSubmit={submit}>

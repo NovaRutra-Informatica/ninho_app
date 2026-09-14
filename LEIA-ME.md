@@ -99,6 +99,6 @@ Os resultados da validação da entrega ficam em `VALIDACAO.md`. Os dados de tes
 
 ## Instalação no Windows
 
-O instalador desta atualização fica em `C:\Users\aless\Ninho\release\Ninho-Setup-1.1.2.exe`. Ele instala o aplicativo para seu usuário, com ícone da coruja, atalho na área de trabalho, entrada no menu Iniciar e desinstalador em **Configurações → Aplicativos → Aplicativos instalados**. A instalação não exige privilégios de administrador.
+O instalador desta atualização fica em `C:\Users\aless\Ninho\release\Ninho-Setup-1.1.3.exe`. Ele instala o aplicativo para seu usuário, com ícone da coruja, atalho na área de trabalho, entrada no menu Iniciar e desinstalador em **Configurações → Aplicativos → Aplicativos instalados**. A instalação não exige privilégios de administrador.
 
 Os estudos ficam em `%APPDATA%\Ninho`, separados dos arquivos do programa, e são preservados ao atualizar ou desinstalar. Antes da migração foram criadas cópias de segurança na subpasta `backups`. Para o uso diário, utilize o atalho da versão instalada.

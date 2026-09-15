@@ -19,7 +19,6 @@ export function errorMessage(
     if (next === message) break;
     message = next;
   }
-  // Stack locations belong to diagnostics, not the explanation shown to the learner.
   message = message.split(/\n\s+at\s/)[0].trim();
   return message && message !== "[object Object]" ? message : fallback;
 }

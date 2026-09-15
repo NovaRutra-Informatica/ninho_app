@@ -33,7 +33,6 @@ const changed = (before: unknown, after: unknown) =>
 const item = <T extends { id: string }>(items: T[], id: string) =>
   items.find((entry) => entry.id === id);
 
-/** Inspect the persisted result. Failed/no-op actions never celebrate success. */
 export function soundAfterCommand(
   command: Command,
   before: AppState,
@@ -149,7 +148,6 @@ export function soundAfterCommand(
 }
 
 type Voice = { oscillator: OscillatorNode; gain: GainNode };
-/** Original synthesized tones; the audio context is created only on a cue. */
 export class StudySoundPlayer {
   private context: AudioContext | null = null;
   private enabled = false;
@@ -184,8 +182,7 @@ export class StudySoundPlayer {
         this.context?.state !== "closed" && this.context
           ? this.context
           : (this.context = this.createContext());
-      // A blocked/slow resume must not keep hardware alive or play a stale cue
-      // much later when another application/user gesture resumes audio.
+      // Abandon a slow resume so it cannot retain audio resources or play a stale cue.
       this.scheduleClose(context, 2_000);
       if (context.state === "suspended") await context.resume();
       if (
@@ -220,7 +217,7 @@ export class StudySoundPlayer {
       }
       this.scheduleClose(context, 1_800);
     } catch {
-      // Optional sound can never make a persisted action fail.
+      // Audio errors must not reject a saved action.
       if (generation === this.generation) this.close();
     }
   }

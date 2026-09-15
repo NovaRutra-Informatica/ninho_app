@@ -1,5 +1,15 @@
 # Validação de interface do Ninho
 
+## Windows 1.1.5: política de conteúdo e fronteiras nativas
+
+Em **15/09/2026**, o build 1.1.5 aprovou **35/35 cenários em 9,6 minutos**, com dois workers e nenhum cenário pulado. TypeScript, compilação e **502 testes Vitest em 26 arquivos** passaram. Relatório completo: [segurança 1.1.5](../test-results/security-e2e-v1.1.5-report/index.html).
+
+O novo teste de CSP comprovou, usando um servidor temporário, que a interface de produção não conecta o WebSocket, não aceita uma base de URL injetada e não envia formulário externo. Antes da correção, o servidor recebia o handshake; essa reprodução falhou como esperado. Os resultados estão em [reprodução anterior](../test-results/security-csp-before-report/index.html) e [regressões após a correção](../test-results/security-csp-after-report/index.html). A execução posterior de quatro cenários direcionados também incluiu a pintura de PDFs pequeno e de 12 MiB e a rejeição de comandos inválidos pelo IPC; eles foram repetidos na suíte completa e não são contados em dobro.
+
+Outro cenário novo criou uma janela secundária oculta usando o mesmo documento e preload: o processo principal recusou o acesso aos dados. O teste de inicialização confirmou as preferências reais de segurança e registrou Electron 44.3.0, Chromium 152.0.7977.78 e Node.js 24.20.0. Os resultados do npm e os limites da avaliação do runtime estão em [SEGURANCA.md](../SEGURANCA.md).
+
+O smoke do pacote 1.1.5, em perfil temporário, passou com 14 capturas, navegação, temas, tamanho mínimo e persistência após reabertura. Evidência: `test-results/packaged-1.1.5-uninstalled/result.json`. Não foi realizada instalação: o aplicativo pessoal continua na versão 1.1.4.
+
 ## Windows 1.1.4: sons
 
 Em 14/09/2026, o build 1.1.4 passou por todos os **33 cenários distintos**. A rodada completa aprovou 32 em 10 minutos; o cenário de preferências falhou porque ainda usava o nome anterior da opção de som. O seletor foi atualizado para **Sons do Ninho**, e o cenário passou na repetição em 16,1 segundos. Não houve alteração de produto entre as duas execuções. TypeScript, build e 500 testes Vitest passaram.
@@ -8,7 +18,7 @@ O novo cenário de áudio aciona salvar preferências, concluir aula, revisar ca
 
 O executável empacotado 1.1.4 passou pelo smoke de navegação, temas, janela mínima e reabertura, com 14 capturas nativas. Este smoke usa `release/win-unpacked/Ninho.exe`, em perfil temporário, e não comprova instalação no perfil pessoal.
 
-Após instalar, o mesmo smoke foi executado com `AppData/Local/Programs/Ninho/Ninho.exe`, novamente em perfil temporário: aprovado, 14 capturas e nenhum erro. O script de verificação da instalação também passou; estado pessoal, preferência e dois PDFs foram preservados. Essa evidência separada está em `test-results/packaged/result.json` e `.cache/installation-verification-1.1.4.json`.
+Após instalar, o mesmo smoke foi executado com `AppData/Local/Programs/Ninho/Ninho.exe`, novamente em perfil temporário: aprovado, 14 capturas e nenhum erro. O script de verificação da instalação também passou; estado pessoal, preferência e dois PDFs foram preservados. Essa evidência separada foi preservada em `test-results/packaged-installed-1.1.4/result.json` e `.cache/installation-verification-1.1.4.json`.
 
 - Rodada completa: [relatório 1.1.4](../test-results/e2e-v1.1.4-report/index.html).
 - Preferências após corrigir o seletor: [reteste aprovado](../test-results/e2e-v1.1.4-settings-report/index.html).

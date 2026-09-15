@@ -374,9 +374,7 @@ export class StudyStore {
       throw new Error("O anexo não é um arquivo válido da biblioteca.");
     const realFile = await fs.realpath(file);
     const resolvedStat = await fs.lstat(realFile, { bigint: true });
-    // Windows may merge a physical AppData directory with MSIX-redirected
-    // files. Their canonical parents need not match. Validate the registered
-    // direct child and its file identity instead; never infer a package path.
+    // MSIX can merge physical and redirected AppData: compare file identity, not canonical parents.
     if (
       !resolvedStat.isFile() ||
       resolvedStat.isSymbolicLink() ||
@@ -492,8 +490,7 @@ export class StudyStore {
           throw new Error(
             "Um anexo mudou durante a verificação de segurança. Tente restaurar novamente.",
           );
-        // This audit reads at most 8 KiB even for multi-gigabyte videos.
-        // The subsequent safety ZIP still streams and verifies every good file.
+        // The safety ZIP verifies the whole file; this check only reads its signature.
         header = Buffer.alloc(Math.min(material.size, 8192));
         let offset = 0;
         while (offset < header.length) {
@@ -520,8 +517,7 @@ export class StudyStore {
       try {
         assertFileContent(extension, header);
       } catch {
-        // Only the pure signature validator is caught. Filesystem errors and
-        // failures of the safety backup must abort before the active index changes.
+        // Catch signature errors only; I/O or backup failures must abort restoration.
         result.damaged++;
         continue;
       }
@@ -537,7 +533,7 @@ export class StudyStore {
       await this.prepareDirectories();
       const staging = await fs.mkdtemp(path.join(this.directory, ".restore-"));
       try {
-        // Nothing in the active collection changes until every streamed entry is verified.
+        // Verify every entry before changing the active collection.
         const restored = await readBackupFile(source, staging);
         let restorationNotice: string | undefined;
         let oldState: AppState | undefined;

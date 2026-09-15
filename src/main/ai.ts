@@ -235,7 +235,7 @@ export function buildStudyPrompt(
       .slice(0, 4)
       .map((item) => ({ title: item.title.slice(0, 150), date: item.date })),
   };
-  // Keep valid JSON and shrink optional details before removing the complete subject index.
+  // Retain subject IDs when trimming optional context.
   const shrinkable = [
     context.nextLessons,
     context.courses,
@@ -386,8 +386,7 @@ export class LocalAiService {
     );
     deadline.unref?.();
     try {
-      // An idle eviction or a click on "Liberar memória" may already be in flight.
-      // Finish it before selecting an instance for a new question.
+      // Wait for any in-flight unload before selecting a model instance.
       await this.releasing;
       controller.signal.throwIfAborted();
       const state = await this.deps.loadState();
@@ -432,7 +431,7 @@ export class LocalAiService {
           );
         instanceId = `ninho-iris-${randomUUID()}`;
         this.owned = { modelId: model.id, instanceId };
-        // CLI documented TTL applies to this specific instance, including after an app crash.
+        // The instance TTL survives an app crash.
         // https://lmstudio.ai/docs/cli/local-models/load
         await this.cli(
           [
@@ -452,8 +451,7 @@ export class LocalAiService {
         );
       }
       controller.signal.throwIfAborted();
-      // A conservative character budget leaves room for Portuguese tokens and the reply
-      // in the 8192-token context. Keep the latest user message intact (max8000 chars).
+      // Leave room for Portuguese tokenization and the reply in the 8192-token context.
       let history = request.messages;
       while (
         history.length > 1 &&

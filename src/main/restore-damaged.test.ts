@@ -235,10 +235,7 @@ describe("restauração com anexos antigos ausentes ou danificados", () => {
     expect(auditedBytes).toBe(8192);
     const preserved = (await inspectSafety()).materials.get(large.storedName);
     expect(preserved?.length).toBe(largePdf.length);
-    // Native byte equality avoids enumerating millions of Buffer properties
-    // while still checking the complete attachment, not only its signature.
+    // Buffer.equals avoids enumerating millions of bytes in a deep assertion.
     expect(preserved?.equals(largePdf)).toBe(true);
-    // This case performs real ZIP I/O and CRC verification under coverage;
-    // allow scheduling contention from the concurrent Windows build/E2E runs.
   }, 15_000);
 });

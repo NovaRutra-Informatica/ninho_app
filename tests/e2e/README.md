@@ -21,7 +21,9 @@ Para repetir somente a regressão de materiais e aulas após compilar:
 npx playwright test tests/e2e/lesson-materials.spec.ts tests/e2e/materials.spec.ts tests/e2e/subject-materials.spec.ts tests/e2e/studies.spec.ts tests/e2e/lesson-focus.spec.ts --workers=2
 ```
 
-O conjunto atual tem 33 cenários. `lesson-materials.spec.ts` verifica importação por aula, movimentação, PDF real e persistência. `lesson-focus.spec.ts` verifica tempo por aula, pausa, reinício e proteção do vínculo. `mentor-readability.spec.ts` cobre tamanhos de texto, espaçamento e movimento reduzido. Os resultados estão em `tests/RESULTADOS-E2E.md`.
+O conjunto atual tem 35 cenários. `lesson-materials.spec.ts` verifica importação por aula, movimentação, PDF real e persistência. `lesson-focus.spec.ts` verifica tempo por aula, pausa, reinício e proteção do vínculo. `mentor-readability.spec.ts` cobre tamanhos de texto, espaçamento e movimento reduzido. Os resultados estão em `tests/RESULTADOS-E2E.md`.
+
+`content-security.spec.ts` usa um servidor local temporário para comprovar que a interface de produção bloqueia WebSocket antes do handshake, base de URL injetada e envio de formulário. `native-boundary.spec.ts` registra as versões do runtime, confere as preferências efetivas de sandbox e isolamento e tenta acessar dados por uma segunda janela com o mesmo preload; o IPC deve recusar. Nenhum desses testes usa o servidor pessoal do LM Studio.
 
 `sounds.spec.ts` confere melodias após salvar, concluir aula, revisar e terminar foco, além da preferência persistida e do fechamento dos recursos após o uso. O grafo de áudio do Chromium é real: um analisador mede a onda produzida antes de um ganho final silenciado. O teste não usa microfone nem depende da saída física de som. Falhas de áudio, repetição rápida e operações rejeitadas também são exercitadas nos testes unitários e de componentes.
 

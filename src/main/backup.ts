@@ -38,8 +38,7 @@ const crcTable = Uint32Array.from({ length: 256 }, (_, value) => {
   return crc >>> 0;
 });
 
-// Only JSON metadata and an 8 KiB signature are retained; attachment bytes flow
-// through Node's bounded streams. CRC catches damaged ZIPs, SHA binds the manifest.
+// Stream attachment bytes; retain only the 8 KiB signature.
 class Inspector {
   private hash = createHash("sha256");
   private crc = 0xffffffff;
@@ -93,7 +92,6 @@ async function regularFile(file: string, maximum: number, size?: number) {
   return stat;
 }
 
-/** Atomic ZIP/ZIP64 export. Even large videos are never read into a Buffer. */
 export async function writeBackupFile(
   input: AppState,
   materialsDirectory: string,
@@ -321,8 +319,7 @@ function parseManifest(data: Buffer): Manifest {
   return manifest;
 }
 
-/** Fully validates the archive before returning paths in a private staging folder.
- * The caller owns that folder and removes it on success or failure. */
+// Returns verified entries; the caller must clean up stagingDirectory on success or failure.
 export async function readBackupFile(
   source: string,
   stagingDirectory: string,

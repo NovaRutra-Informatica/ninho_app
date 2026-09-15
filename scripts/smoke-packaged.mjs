@@ -81,8 +81,7 @@ const launch = async () => {
   return page;
 };
 const capture = async (page, filename) => {
-  // Packaged Chromium can complete DOM checks while CDP Page.captureScreenshot
-  // stalls. Use the tested BrowserWindow's own compositor capture instead.
+  // CDP screenshots can stall after DOM checks; capture with BrowserWindow instead.
   try {
     await page.waitForFunction(
       () => !document.documentElement.dataset.pageTransition,
@@ -120,8 +119,7 @@ const capture = async (page, filename) => {
         if (image.isEmpty())
           throw new Error("Native capture returned an empty image");
         const size = image.getSize();
-        // Exclude the sidebar and bottom toast: they can render correctly while
-        // the changing page is still an empty compositor frame.
+        // Exclude sidebar/toast so an empty page cannot pass the paint check.
         const bitmap = image
           .crop({
             x: Math.floor(size.width * 0.2),

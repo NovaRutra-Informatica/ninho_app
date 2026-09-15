@@ -55,8 +55,7 @@ describe("caminhos da biblioteca em perfis Windows", () => {
     );
     await fs.mkdir(canonicalDirectory, { recursive: true });
     const canonical = path.join(canonicalDirectory, material.storedName);
-    // A hard link gives both synthetic views a real, identical file identity.
-    // Only the virtualized realpath mapping is mocked; lstat and preview are real.
+    // Hard links share file identity; only the MSIX realpath mapping is mocked.
     await fs.link(logical, canonical);
     aliasRealpath(logical, canonical);
     expect(path.dirname(canonical).toLowerCase()).not.toBe(

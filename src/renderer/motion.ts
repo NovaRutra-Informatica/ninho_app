@@ -15,8 +15,7 @@ export function scrollBehavior(preference = false): ScrollBehavior {
 let active: { transition: ViewTransition; commit: () => void } | undefined;
 
 export function transitionPage(update: () => void, preference = false): void {
-  // A skipped transition still runs its callback. Commit it once before the
-  // next navigation so rapid clicks cannot replay an older destination later.
+  // Skipping still runs the callback: commit once now to prevent stale navigation.
   if (active) {
     const previous = active;
     active = undefined;
@@ -33,9 +32,8 @@ export function transitionPage(update: () => void, preference = false): void {
       typeof document !== "undefined" &&
       document.documentElement.dataset.pageTransition === "true"
     ) {
-      // Capture the finished new layout, not the first transparent frame of a
-      // nested entry animation. Finish its timeline instead of changing CSS,
-      // which would restart that animation when the snapshot disappears.
+      // Finish entry animations to avoid capturing opacity:0. Changing CSS instead
+      // can restart the animation when the snapshot disappears.
       for (const animation of document.getAnimations?.() || []) {
         const effect = animation.effect as KeyframeEffect | null;
         if (
@@ -46,7 +44,7 @@ export function transitionPage(update: () => void, preference = false): void {
           try {
             animation.finish();
           } catch {
-            // An unsupported timeline must never prevent navigation.
+            // Unsupported timelines must not block navigation.
           }
         }
       }
@@ -70,8 +68,7 @@ export function transitionPage(update: () => void, preference = false): void {
     return;
   }
   active = { transition, commit };
-  // Hidden windows and rapid navigation can skip snapshots. The navigation
-  // itself remains valid even when the browser cannot animate that snapshot.
+  // Hidden windows and rapid navigation can reject ready after a valid navigation.
   void transition.ready.catch(() => undefined);
   const release = () => {
     if (active?.transition === transition) {

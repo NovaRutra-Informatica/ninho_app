@@ -81,7 +81,6 @@ test("migra o perfil v1 preservando integralmente estudos, revisões, anexos e p
   ).toHaveValue(material.notes);
   await page.keyboard.press("Escape");
 
-  // A normal user edit persists the migrated schema through the real IPC/store.
   await page.getByTestId("nav-settings").click();
   await page
     .getByRole("textbox", { name: "Como quer ser chamado?", exact: true })

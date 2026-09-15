@@ -7,8 +7,6 @@ is a JSON report under this project's .cache directory. Exit 0 means every
 required check passed; exit 1 means a failed check or an unexpected error.
 .EXAMPLE
 pwsh -NoProfile -File .\scripts\verify-installation.ps1
-.EXAMPLE
-pwsh -NoProfile -File .\scripts\verify-installation.ps1 -ReportPath .cache\installation-verification-1.1.1.json
 #>
 [CmdletBinding()]
 param(
@@ -28,8 +26,7 @@ if ([string]::IsNullOrWhiteSpace($ReportPath)) {
 }
 $reportFile = [IO.Path]::GetFullPath($ReportPath)
 
-# Even a custom report destination may write only beneath .cache. Reject links
-# in that destination so writing the report cannot redirect to user data.
+# Reject links so the report path cannot escape .cache.
 if (-not $reportFile.StartsWith($cachePath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetExtension($reportFile) -ne '.json') {
   Write-Error 'The report must be a JSON file inside this project''s .cache directory.' -ErrorAction Continue
   exit 1
@@ -167,8 +164,7 @@ try {
     Add-Check 'uninstaller points to installed directory' (Same-Path $uninstallerDirectory $installPath) $installPath $uninstaller
     Add-Check 'registered uninstaller exists' $uninstallerExists $true $uninstallerExists
     Add-Check 'registration display icon' ((Same-Path $icon.path $installedIcon) -and $icon.index -eq 0) $installedIcon $entry.displayIcon
-    # electron-builder stores InstallLocation in a companion key on some NSIS versions;
-    # when absent here, UninstallString and DisplayIcon still validate the target directory.
+    # NSIS may omit InstallLocation; UninstallString and DisplayIcon still identify the target.
     if ($entry.installLocation) { Add-Check 'registration InstallLocation' (Same-Path $entry.installLocation $installPath) $installPath $entry.installLocation }
   }
 
@@ -186,7 +182,7 @@ try {
       if (-not $exists) { continue }
       $link = $null; $folder = $null; $shellItem = $null
       try {
-        # CreateShortcut reads the existing .lnk; Save is deliberately never called.
+        # CreateShortcut only reads the .lnk until Save is called.
         $link = $wscript.CreateShortcut($shortcutFile)
         $icon = Icon-Reference ([string]$link.IconLocation)
         $properties = [ordered]@{ location = $kind; path = $shortcutFile; target = [string]$link.TargetPath; iconLocation = [string]$link.IconLocation; arguments = [string]$link.Arguments; workingDirectory = [string]$link.WorkingDirectory; appUserModelId = $null; appUserModelIdAccessible = $false }
@@ -244,7 +240,6 @@ $report.checks = @($checks.ToArray())
 $report.passed = @($checks | Where-Object { $_.status -eq 'failed' }).Count -eq 0
 $report.completedAtUtc = [DateTime]::UtcNow.ToString('o')
 try {
-  # This is the only intentional filesystem mutation in the verification.
   [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($reportFile))
   [IO.File]::WriteAllText($reportFile, ($report | ConvertTo-Json -Depth 15), (New-Object Text.UTF8Encoding($false)))
 } catch {

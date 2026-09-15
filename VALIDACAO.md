@@ -1,5 +1,17 @@
 # Validação do Ninho
 
+## Atualização preparada Windows 1.1.5 — segurança
+
+Em **15/09/2026**, passaram **502 testes Vitest em 26 arquivos**, a verificação TypeScript e a compilação de produção. A suíte completa no Electron aprovou **35/35 cenários em 9,6 minutos**, sem falhas nem cenários pulados. Relatório: `test-results/security-e2e-v1.1.5-report/index.html`. Os perfis e arquivos de teste são isolados; o LM Studio pessoal não foi utilizado.
+
+A política da interface de produção agora bloqueia conexões diretas, bases de URL injetadas e envio de formulários. A permissão de desenvolvimento para WebSocket foi reproduzida antes da correção e recusada depois, com servidor e Electron reais. Uma janela secundária com o mesmo documento e preload também teve o acesso ao IPC negado. A suíte completa preservou os fluxos de PDF pequeno e de 12 MiB com conteúdo pintado, caminhos Windows virtualizados e junctions, materiais, backup, IA, sons e persistência. O Vite mantém suas permissões somente no desenvolvimento.
+
+`npm audit --json`, incluindo dependências de desenvolvimento, reportou **zero vulnerabilidades conhecidas**. As 29 dependências diretas correspondem ao lockfile; nenhuma versão de dependência foi alterada. O runtime real confirmou Electron 44.3.0, Chromium 152.0.7977.78 e Node.js 24.20.0. Isso não demonstra ausência de falhas no runtime: a revisão dos boletins e a incerteza sobre correções recentes do Chromium estão detalhadas em [SEGURANCA.md](SEGURANCA.md).
+
+O smoke do executável empacotado **1.1.5** passou em perfil temporário por navegação, temas, janela mínima, reabertura e persistência, com **14/14 capturas nativas**, sem erros. A captura compacta da assistente foi inspecionada. Evidência: `test-results/packaged-1.1.5-uninstalled/result.json`.
+
+Instalador preparado: `release/Ninho-Setup-1.1.5.exe`, **118.078.551 bytes**, SHA-256 `F94CCF5BFCE79AB9D81A74DBEA426129F70FAA3E87B3C1BFC38044A7435774C5`. **Não foi instalado nesta tarefa.** O executável pessoal continua na versão 1.1.4. Não houve commit, staging, publicação nem alterações no perfil pessoal. O arquivo de Dependabot foi preparado localmente; a ativação no GitHub não foi executada.
+
 ## Atualização Windows 1.1.4 — sons
 
 Em 14/09/2026, **500 testes Vitest em 25 arquivos passaram**, incluindo 29 testes novos de sons e sua integração com persistência e foco. TypeScript e compilação de produção passaram. A cobertura instrumentada de domínio e serviços permanece nos percentuais documentados abaixo; os novos módulos de áudio são exercitados por testes, mas não fazem parte desse recorte de cobertura.
@@ -8,7 +20,7 @@ O novo E2E de áudio passou com `AudioContext`, osciladores, ganhos e analisador
 
 A rodada completa de interface aprovou **32 cenários em 10 minutos** e teve um timeout de seletor: o teste de preferências ainda procurava o rótulo antigo “Som ao concluir o foco”. Após ajustar somente o teste para “Sons do Ninho”, esse cenário passou em **16,1 segundos**. Assim, os **33 cenários distintos foram aprovados**, com a rodada inicial e a repetição documentadas separadamente. Não houve mudança no produto entre essas execuções. Relatórios: `test-results/e2e-v1.1.4-report/index.html` e `test-results/e2e-v1.1.4-settings-report/index.html`.
 
-O smoke do executável empacotado **1.1.4** passou por navegação, temas, janela mínima, reabertura e persistência, com 14 de 14 capturas nativas; evidência em `test-results/packaged-1.1.4-uninstalled/result.json`. A versão **1.1.4 foi instalada** no perfil pessoal. O smoke repetido com o executável realmente instalado, em perfil temporário, também passou com 14 capturas e nenhuma exceção; evidência em `test-results/packaged/result.json`. A captura de Ajustes foi inspecionada e o controle de som está legível. As mudanças estão em `ATUALIZACAO-1.1.4.md`.
+O smoke do executável empacotado **1.1.4** passou por navegação, temas, janela mínima, reabertura e persistência, com 14 de 14 capturas nativas; evidência em `test-results/packaged-1.1.4-uninstalled/result.json`. A versão **1.1.4 foi instalada** no perfil pessoal. O smoke repetido com o executável realmente instalado, em perfil temporário, também passou com 14 capturas e nenhuma exceção; evidência preservada em `test-results/packaged-installed-1.1.4/result.json`. A captura de Ajustes foi inspecionada e o controle de som está legível. As mudanças estão em `ATUALIZACAO-1.1.4.md`.
 
 Instalador: `release/Ninho-Setup-1.1.4.exe` (118.079.139 bytes), SHA-256 `7F6F5453ACF01F890A8485E0E8870101B9557DD1E1B062EF95BB1FA7EB8BCFDA`. Instalação terminou com código 0, e `scripts/verify-installation.ps1` aprovou executável, versão, pacote, ícone, registro e atalhos. O estado pessoal e os dois PDFs permaneceram byte a byte iguais antes/depois; a preferência de som já ativada foi preservada. Relatórios: `.cache/installation-update-1.1.4.json` e `.cache/installation-verification-1.1.4.json`.
 

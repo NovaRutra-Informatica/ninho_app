@@ -1,11 +1,9 @@
-// Test-only entrypoint: the built app, preload, renderer and IPC remain real.
 // No E2E process contacts or loads the user's LM Studio instance.
 if (process.env.NINHO_E2E !== "1" || !process.env.NINHO_DATA_DIR) {
   throw new Error("The E2E bootstrap requires an isolated data directory.");
 }
 const { app, BrowserWindow } = require("electron");
-// The real window is created with show:false. Keep it hidden so tests cannot
-// steal focus from the user's browser; Playwright still controls its renderer.
+// Keep test windows hidden to avoid stealing focus from the user.
 BrowserWindow.prototype.show = function () {};
 BrowserWindow.prototype.showInactive = function () {};
 app.on("browser-window-created", (_event, window) =>

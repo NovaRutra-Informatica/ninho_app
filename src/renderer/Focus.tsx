@@ -284,7 +284,7 @@ export function useFocus() {
         ),
       );
     } catch {
-      /* AppProvider displays the persistence error; the elapsed time remains available for retry. */
+      /* Keep elapsed time for retry; AppProvider reports the error. */
     } finally {
       finishing.current = false;
       setSaving(false);

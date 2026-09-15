@@ -1,9 +1,26 @@
-import { test, expect } from "./fixtures";
+import path from "node:path";
+import { writeFile } from "node:fs/promises";
+import { test, expect, projectDir } from "./fixtures";
 
 test("o aplicativo abre localmente com catálogo completo e uma ponte nativa restrita", async ({
   ninho,
-}) => {
+}, testInfo) => {
   const { page, app } = ninho;
+  const runtime = await app.evaluate(() => ({
+    electron: process.versions.electron,
+    chromium: process.versions.chrome,
+    node: process.versions.node,
+  }));
+  await writeFile(
+    testInfo.outputPath("runtime.json"),
+    JSON.stringify(runtime, null, 2),
+  );
+  await testInfo.attach("runtime", {
+    body: JSON.stringify(runtime),
+    contentType: "application/json",
+  });
+  expect(runtime.electron).toBe("44.3.0");
+  expect(runtime.chromium).toBe("152.0.7977.78");
   expect(page.url()).toMatch(/^file:\/\//);
   const bridge = await page.evaluate(() => ({
     methods: Object.keys(window.ninho ?? {}).sort(),
@@ -35,6 +52,10 @@ test("o aplicativo abre localmente com catálogo completo e uma ponte nativa res
   );
   expect(preferences.contextIsolation).toBe(true);
   expect(preferences.nodeIntegration).toBe(false);
+  expect(preferences.sandbox).toBe(true);
+  expect(preferences.nodeIntegrationInWorker).toBe(false);
+  expect(preferences.webviewTag).toBe(false);
+  expect(preferences.webSecurity).toBe(true);
 
   const state = await ninho.state();
   expect(state.version).toBe(2);
@@ -64,6 +85,36 @@ test("o aplicativo abre localmente com catálogo completo e uma ponte nativa res
       (card) => card.repetitions === 0 && card.lastReviewedAt === null,
     ),
   ).toBe(true);
+});
+
+test("outra janela não recebe dados pelo IPC mesmo usando o documento e preload do Ninho", async ({
+  ninho,
+}) => {
+  const result = await ninho.app.evaluate(
+    async ({ BrowserWindow }, preload) => {
+      const original = BrowserWindow.getAllWindows()[0];
+      const secondary = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          preload,
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+        },
+      });
+      try {
+        await secondary.loadURL(original.webContents.getURL());
+        return await secondary.webContents.executeJavaScript(
+          `window.ninho.load().then(() => "UNEXPECTED_SUCCESS", error => error.message)`,
+        );
+      } finally {
+        secondary.destroy();
+      }
+    },
+    path.join(projectDir, "dist-electron", "preload.cjs"),
+  );
+  expect(result).toContain("Esta página não tem acesso aos seus dados.");
+  await expect(ninho.page.getByTestId("nav-today")).toBeVisible();
 });
 
 test("IPC rejeita comandos desconhecidos e links executáveis sem alterar o perfil", async ({

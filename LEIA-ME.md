@@ -97,10 +97,10 @@ npm run dist
 npm run installer
 ```
 
-Os resultados da validação da entrega ficam em `VALIDACAO.md`. Os dados de teste nunca devem ser usados como progresso pessoal.
+Os resultados da validação da entrega ficam em `VALIDACAO.md`. A auditoria de dependências e as proteções da versão 1.1.5 estão em [SEGURANCA.md](SEGURANCA.md). Os dados de teste nunca devem ser usados como progresso pessoal.
 
 ## Instalação no Windows
 
-O instalador desta atualização fica em `C:\Users\aless\Ninho\release\Ninho-Setup-1.1.4.exe`. Ele instala o aplicativo para seu usuário, com ícone da coruja, atalho na área de trabalho, entrada no menu Iniciar e desinstalador em **Configurações → Aplicativos → Aplicativos instalados**. A instalação não exige privilégios de administrador.
+O instalador preparado fica em `C:\Users\aless\Ninho\release\Ninho-Setup-1.1.5.exe`. Ele ainda não foi instalado; a instalação pessoal permanece na versão 1.1.4. O instalador configura o aplicativo para seu usuário, com ícone da coruja, atalho na área de trabalho, entrada no menu Iniciar e desinstalador em **Configurações → Aplicativos → Aplicativos instalados**. A instalação não exige privilégios de administrador.
 
 Os estudos ficam em `%APPDATA%\Ninho`, separados dos arquivos do programa, e são preservados ao atualizar ou desinstalar. Antes da migração foram criadas cópias de segurança na subpasta `backups`. Para o uso diário, utilize o atalho da versão instalada.

@@ -71,8 +71,7 @@ for (const mode of ["roaming-overlay", "junction-mixed-case"] as const) {
           paths.canonical.toLowerCase() === paths.logical.toLowerCase(),
         "Este Windows não virtualizou a pasta QA de AppData; não há overlay real para exercitar neste ambiente.",
       );
-      // Both fixtures exercise a genuine Windows path alias. Never mock realpath,
-      // lstat, the resolver or its IPC handler to manufacture a successful result.
+      // Keep realpath, lstat and IPC real: mocked paths miss Windows alias failures.
       expect(paths.canonical.toLowerCase()).not.toBe(
         paths.logical.toLowerCase(),
       );
@@ -263,7 +262,6 @@ test.describe("anexo ausente", () => {
       .getByRole("button", { name: "Abrir no Windows", exact: true })
       .click();
     expect(await openedFiles(ninho)).toEqual([]);
-    // Restore only the synthetic attachment removed earlier in this test.
     await fs.writeFile(canonical, existingPdf);
     await modal
       .getByRole("button", { name: "Tentar prévia novamente", exact: true })
@@ -298,8 +296,7 @@ test.describe("recuperação de anexo danificado", () => {
       ninho.backupPath,
     );
     const { canonical } = await canonicalFile(ninho, existing.storedName);
-    // A damaged signature with identical size exercises content validation,
-    // rather than the already supported missing-file recovery case.
+    // Keep the size unchanged so signature validation must detect the damaged PDF.
     await fs.writeFile(canonical, Buffer.alloc(existingPdf.length));
     const previewError = await ninho.page.evaluate(async (id) => {
       try {

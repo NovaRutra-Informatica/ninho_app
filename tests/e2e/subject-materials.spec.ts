@@ -6,8 +6,7 @@ test("materiais da matéria mantêm o contexto e aceitam vídeo e áudio pessoai
   ninho,
 }, testInfo) => {
   const { page } = ninho;
-  // A tiny, genuinely encoded WebM created inside the isolated renderer. No
-  // camera, screen, personal media, remote download or original app is read.
+  // Generate a valid WebM from the canvas without capturing user media.
   const videoBytes = await page.evaluate(async () => {
     const canvas = document.createElement("canvas");
     canvas.width = 160;

@@ -3405,7 +3405,6 @@ fieldset.material-fields {
   }
 }
 
-/* Comfortable reading and short, interruptible motion throughout the study flow. */
 :root {
   --motion-quick: 220ms;
   --motion-content: 340ms;

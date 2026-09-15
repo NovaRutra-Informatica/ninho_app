@@ -257,7 +257,6 @@ function defaultProgram(track: Track): StudyProgram {
   };
 }
 
-/** Upgrade only the known v1 shape; unknown versions and malformed backups remain errors. */
 export function migrateState(input: unknown): unknown {
   if (
     !input ||
@@ -350,7 +349,6 @@ const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("material.remove"), id }).strict(),
 ]);
 
-/** Validate both shape and referential integrity; returns a detached, safe data object. */
 export function validateState(input: unknown): AppState {
   const state = stateSchema.parse(migrateState(input));
   for (const collection of [
@@ -447,7 +445,7 @@ function validNow(date: Date): Date {
   return date;
 }
 
-/** Calendar date in the user's local timezone, never a UTC-sliced date. */
+// Calendar dates use local time, not UTC.
 export function localDate(date: Date = new Date()): string {
   validNow(date);
   return `${date.getFullYear().toString().padStart(4, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
@@ -471,7 +469,7 @@ export interface LessonStudyStats {
   sessionCount: number;
 }
 
-/** Recorded time only. Zero-minute review events never imply study duration. */
+// A zero-minute review must not count as study time.
 export function getLessonStudyStats(
   state: AppState,
 ): Record<string, LessonStudyStats> {
@@ -550,7 +548,6 @@ function scheduleCard(
   };
 }
 
-/** Pure command reducer; all input validation runs before a result is returned. */
 export function applyCommand(
   input: AppState,
   rawCommand: Command,
@@ -772,7 +769,7 @@ export function getDueCards(
   subjectId?: string,
 ): ReviewCard[] {
   const today = localDate(now);
-  // Persist the first exposure separately: a second review must not reset the daily count.
+  // Repeated reviews must not reset the daily new-card count.
   const firstReviews = state.sessions.filter(
     (session) =>
       session.kind === "review" &&

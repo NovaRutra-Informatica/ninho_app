@@ -31,8 +31,7 @@ export interface NinhoTestApp {
 }
 
 export function minimalPdf(paddingBytes = 0): Buffer {
-  // Two distinct vector colors make actual PDF paint observable independently
-  // of the Chromium viewer's toolbar, iframe visibility or document metadata.
+  // Colored vectors distinguish PDF page paint from viewer controls and thumbnails.
   const contents =
     "BT /F1 18 Tf 50 760 Td (Ninho - Material de teste) Tj ET\n" +
     "q 1 0 0.6 rg 50 660 120 60 re f Q\n" +

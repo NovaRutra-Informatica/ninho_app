@@ -11,8 +11,7 @@ test("sons reais acompanham ações persistidas, liberam áudio ocioso e respeit
   ninho,
 }, testInfo) => {
   const { page } = ninho;
-  // Exercise Chromium's real audio graph. Only the final physical output is
-  // muted: the analyser observes the generated waveform before that mute.
+  // Measure Chromium's waveform before muting the physical output.
   await page.addInitScript(() => {
     const NativeContext = window.AudioContext;
     const evidence: AudioEvidence = {

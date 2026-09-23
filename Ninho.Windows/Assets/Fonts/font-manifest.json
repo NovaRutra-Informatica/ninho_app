@@ -1,0 +1,68 @@
+[
+  {
+    "file": "DMSans.ttf",
+    "family": "DM Sans",
+    "style": "Regular",
+    "fullName": "DM Sans Regular",
+    "postScriptName": "DMSans-Regular",
+    "weight": 400,
+    "fontFamilyUri": "ms-appx:///Assets/Fonts/DMSans.ttf#DM Sans",
+    "importedByOriginalApp": true,
+    "source": "node_modules/@fontsource/dm-sans/files/dm-sans-latin-400-normal.woff"
+  },
+  {
+    "file": "DMSans-Medium.ttf",
+    "family": "DM Sans Medium",
+    "style": "Regular",
+    "fullName": "DM Sans Medium",
+    "postScriptName": "DMSans-Medium",
+    "weight": 500,
+    "fontFamilyUri": "ms-appx:///Assets/Fonts/DMSans-Medium.ttf#DM Sans Medium",
+    "importedByOriginalApp": true,
+    "source": "node_modules/@fontsource/dm-sans/files/dm-sans-latin-500-normal.woff"
+  },
+  {
+    "file": "DMSans-SemiBold.ttf",
+    "family": "DM Sans SemiBold",
+    "style": "Regular",
+    "fullName": "DM Sans SemiBold",
+    "postScriptName": "DMSans-SemiBold",
+    "weight": 600,
+    "fontFamilyUri": "ms-appx:///Assets/Fonts/DMSans-SemiBold.ttf#DM Sans SemiBold",
+    "importedByOriginalApp": true,
+    "source": "node_modules/@fontsource/dm-sans/files/dm-sans-latin-600-normal.woff"
+  },
+  {
+    "file": "DMSans-Bold.ttf",
+    "family": "DM Sans",
+    "style": "Bold",
+    "fullName": "DM Sans Bold",
+    "postScriptName": "DMSans-Bold",
+    "weight": 700,
+    "fontFamilyUri": "ms-appx:///Assets/Fonts/DMSans-Bold.ttf#DM Sans",
+    "importedByOriginalApp": true,
+    "source": "node_modules/@fontsource/dm-sans/files/dm-sans-latin-700-normal.woff"
+  },
+  {
+    "file": "Fraunces-Medium.ttf",
+    "family": "Fraunces Medium",
+    "style": "Regular",
+    "fullName": "Fraunces Medium",
+    "postScriptName": "Fraunces-Medium",
+    "weight": 500,
+    "fontFamilyUri": "ms-appx:///Assets/Fonts/Fraunces-Medium.ttf#Fraunces Medium",
+    "importedByOriginalApp": true,
+    "source": "node_modules/@fontsource/fraunces/files/fraunces-latin-500-normal.woff"
+  },
+  {
+    "file": "Fraunces.ttf",
+    "family": "Fraunces SemiBold",
+    "style": "Regular",
+    "fullName": "Fraunces SemiBold",
+    "postScriptName": "Fraunces-SemiBold",
+    "weight": 600,
+    "fontFamilyUri": "ms-appx:///Assets/Fonts/Fraunces.ttf#Fraunces SemiBold",
+    "importedByOriginalApp": false,
+    "source": "node_modules/@fontsource/fraunces/files/fraunces-latin-600-normal.woff"
+  }
+]

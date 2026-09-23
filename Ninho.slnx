@@ -1,0 +1,8 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="Ninho.Core/Ninho.Core.csproj" />
+  <Project Path="Ninho.Windows/Ninho.Windows.csproj" />
+  <Project Path="Ninho.Tests/Ninho.Tests.csproj" />
+</Solution>

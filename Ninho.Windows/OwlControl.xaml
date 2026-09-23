@@ -1,0 +1,31 @@
+<UserControl x:Class="Ninho.Windows.OwlControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Viewbox Stretch="Uniform">
+    <Canvas Width="280" Height="260" AutomationProperties.Name="Íris, a coruja do Ninho">
+      <Canvas x:Name="BodyCanvas" Width="280" Height="260">
+        <Canvas.RenderTransform><TranslateTransform x:Name="FloatTransform" /></Canvas.RenderTransform>
+        <Path Data="M59 204 Q93 190 139 205 Q185 187 224 201 L215 224 Q180 215 141 231 Q97 216 60 223Z" Fill="#F4DDA5" />
+        <Path Data="M139 205 L141 231 M70 210 Q108 207 130 216 M151 216 Q180 207 212 212" Stroke="#B39E70" StrokeThickness="3" />
+        <Path Data="M66 80 L69 28 L109 56 Q139 42 169 55 L211 29 L213 88 Q229 126 209 174 Q190 214 139 217 Q80 215 65 172 Q49 126 66 80" Fill="#80B9A0" />
+        <Path Data="M68 88 Q71 58 105 57 Q139 55 140 84 Q155 51 186 59 Q215 63 211 101 Q204 147 142 174 Q79 148 68 88" Fill="#F7F1DB" />
+        <Path x:Name="Wing" Data="M66 111 Q36 151 69 189 Q80 169 88 154" Fill="#579781"><Path.RenderTransform><RotateTransform x:Name="WingTransform" CenterX="70" CenterY="120" /></Path.RenderTransform></Path>
+        <Path Data="M211 111 Q241 151 209 189 Q195 164 191 154" Fill="#579781" />
+        <Canvas x:Name="Eyes"><Canvas.RenderTransform><ScaleTransform x:Name="EyesTransform" CenterX="140" CenterY="99" /></Canvas.RenderTransform>
+          <Ellipse Canvas.Left="95" Canvas.Top="80" Width="26" Height="38" Fill="#213F37" />
+          <Ellipse Canvas.Left="159" Canvas.Top="80" Width="26" Height="38" Fill="#213F37" />
+          <Ellipse Canvas.Left="107" Canvas.Top="89" Width="8" Height="8" Fill="White" />
+          <Ellipse Canvas.Left="171" Canvas.Top="89" Width="8" Height="8" Fill="White" />
+        </Canvas>
+        <Path Data="M129 119 Q140 115 151 119 L141 135Z" Fill="#DD9659" />
+        <Path Data="M116 165 L123 174 L130 165 M137 176 L144 185 L151 176 M158 165 L165 174 L172 165" Stroke="#4D8A74" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        <Path Data="M116 214 L110 225 M126 215 L124 226 M156 215 L156 226 M166 214 L172 224" Stroke="#D29C57" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+      </Canvas>
+      <Canvas x:Name="StarsCanvas" Width="280" Height="260">
+        <Path Data="M36 47 l3 9 9 3 -9 3 -3 9 -3-9 -9-3 9-3Z" Fill="#D1E6A6" />
+        <Path Data="M235 94 l2 7 7 2 -7 2 -2 7 -2-7 -7-2 7-2Z" Fill="#D1E6A6" />
+        <Ellipse Canvas.Left="229" Canvas.Top="187" Width="6" Height="6" Fill="#D1E6A6" />
+        <Ellipse Canvas.Left="38" Canvas.Top="166" Width="6" Height="6" Fill="#D1E6A6" />
+        <Path Data="M145 15 l2 5 5 2 -5 2 -2 5 -2-5 -5-2 5-2Z" Fill="#D1E6A6" />
+      </Canvas>
+    </Canvas>
+  </Viewbox>
+</UserControl>

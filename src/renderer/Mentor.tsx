@@ -18,10 +18,10 @@ import {
 } from "lucide-react";
 import { getMentorOverview } from "../domain";
 import { useApp } from "./store";
-import AiChat from "./AiChat";
+import ProactiveCards, { useForegroundMinute } from "./ProactiveCards";
 import { Empty, Owl, prettyDate, ProgressBar } from "./ui";
 
-type NavigationPage = "reviews" | "studies" | "agenda" | "progress";
+type NavigationPage = "reviews" | "studies" | "agenda" | "progress" | "profile";
 type MentorAction = ReturnType<
   typeof getMentorOverview
 >["recommendations"][number];
@@ -46,7 +46,7 @@ export default function Mentor({
 }) {
   const { state } = useApp();
   const [subjectId, setSubjectId] = useState("");
-  const [now, setNow] = useState(() => new Date());
+  const now = useForegroundMinute();
   const [signalFilter, setSignalFilter] = useState("all");
   const overview = useMemo(
     () => getMentorOverview(state, now, subjectId || undefined),
@@ -70,10 +70,6 @@ export default function Mentor({
       (signalFilter === "unknown" && insight.reviewedCards === 0),
   );
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(timer);
-  }, []);
   function takeAction(action: MentorAction) {
     if (action.target === "focus") openFocus(action.subjectId);
     else onNavigate(action.target, action.subjectId, action);
@@ -109,12 +105,12 @@ export default function Mentor({
       <div className="page-heading">
         <div>
           <span className="eyebrow">UM OLHAR ATENTO PARA O SEU ESTUDO</span>
-          <h1>Seu próximo passo, com a Íris.</h1>
+          <h1>Minha assistente</h1>
           <p>Transforme seus registros em uma direção simples para hoje.</p>
         </div>
         <span className="badge">
           <ShieldCheck size={15} />
-          ASSISTENTE LOCAL
+          ACOMPANHAMENTO LOCAL
         </span>
       </div>
 
@@ -128,8 +124,9 @@ export default function Mentor({
           </h2>
           <p data-testid="mentor-summary">{overview.summary}</p>
           <small>
-            Minhas sugestões usam suas revisões, marcações, aulas e provas. São
-            indícios do que merece atenção, não uma nota sobre sua capacidade.
+            Minhas sugestões usam seu perfil, revisões, marcações, aulas e
+            provas. São indícios do que merece atenção, não uma nota sobre sua
+            capacidade.
           </small>
         </div>
         <Owl happy />
@@ -210,6 +207,12 @@ export default function Mentor({
         </button>
       </div>
 
+      <ProactiveCards
+        subjectId={subjectId || undefined}
+        onAction={(target, id) =>
+          target === "focus" ? openFocus(id) : onNavigate(target, id)
+        }
+      />
       <div className="mentor-layout">
         <article className="panel mentor-plan">
           <div className="section-title">
@@ -260,7 +263,6 @@ export default function Mentor({
           </button>
         </article>
 
-        <AiChat subjectId={subjectId || undefined} />
         <div className="mentor-main">
           <article className="panel mentor-diagnosis">
             <div className="section-title">
@@ -414,6 +416,13 @@ export default function Mentor({
             )}
           </article>
 
+          <p className="microcopy">
+            Arquivos e vídeos não são lidos automaticamente. Recursos opcionais
+            de conversa com IA ficam em Meu perfil.
+          </p>
+          <button className="link-button" onClick={() => onNavigate("profile")}>
+            Editar meu perfil e recursos opcionais <ArrowRight size={15} />
+          </button>
           <div className="mentor-limits">
             <ShieldCheck size={19} />
             <div>

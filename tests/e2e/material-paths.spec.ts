@@ -296,7 +296,6 @@ test.describe("recuperação de anexo danificado", () => {
       ninho.backupPath,
     );
     const { canonical } = await canonicalFile(ninho, existing.storedName);
-    // Keep the size unchanged so signature validation must detect the damaged PDF.
     await fs.writeFile(canonical, Buffer.alloc(existingPdf.length));
     const previewError = await ninho.page.evaluate(async (id) => {
       try {

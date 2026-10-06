@@ -131,13 +131,13 @@ test("explicações da Íris são legíveis em janela compacta e respeitam movim
     path: testInfo.outputPath("mentor-plano-compacto.png"),
     contentType: "image/png",
   });
-  await page.getByTestId("ai-chat").scrollIntoViewIfNeeded();
+  await page.getByRole("region", {name:"Acompanhamento proativo"}).scrollIntoViewIfNeeded();
   await page.screenshot({
-    path: testInfo.outputPath("mentor-conversa-compacto.png"),
+    path: testInfo.outputPath("mentor-acompanhamento-compacto.png"),
     animations: "disabled",
   });
-  await testInfo.attach("mentor-conversa-compacto", {
-    path: testInfo.outputPath("mentor-conversa-compacto.png"),
+  await testInfo.attach("mentor-acompanhamento-compacto", {
+    path: testInfo.outputPath("mentor-acompanhamento-compacto.png"),
     contentType: "image/png",
   });
   await page.locator(".mentor-diagnosis").scrollIntoViewIfNeeded();
@@ -152,9 +152,6 @@ test("explicações da Íris são legíveis em janela compacta e respeitam movim
 
   await page.getByTestId("nav-settings").click();
   await page.getByRole("checkbox", { name: /Reduzir animações/ }).check();
-  await page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.reducedMotion)
     .toBe(true);
@@ -187,9 +184,6 @@ test("explicações da Íris são legíveis em janela compacta e respeitam movim
 
   await page.getByTestId("nav-settings").click();
   await page.getByRole("checkbox", { name: /Reduzir animações/ }).uncheck();
-  await page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.reducedMotion)
     .toBe(false);

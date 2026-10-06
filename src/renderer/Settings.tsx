@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Download,
   FolderHeart,
@@ -9,12 +9,45 @@ import {
   Upload,
 } from "lucide-react";
 import { useApp } from "./store";
+import { settingsSchema } from "../domain";
+import type { Settings as SettingsValue } from "../shared/types";
 import { Confirm } from "./ui";
+import { clearActivity } from "./activity";
 export default function Settings() {
   const { state, act, api, replace, notify } = useApp();
-  const [settings, setSettings] = useState(state.settings);
+  const [settings, setDraft] = useState(state.settings);
+  const [saveStatus, setSaveStatus] = useState(
+    "As alterações são salvas automaticamente.",
+  );
+  const saveSequence = useRef(0);
+  function setSettings(next: SettingsValue) {
+    setDraft(next);
+    const patch: Partial<SettingsValue> = {};
+    for (const key of Object.keys(next) as (keyof SettingsValue)[]) {
+      if (next[key] !== settings[key]) {
+        const result = settingsSchema.shape[key].safeParse(next[key]);
+        if (!result.success) {
+          setSaveStatus("Complete o campo com um valor válido para salvar.");
+          return;
+        }
+        Object.assign(patch, { [key]: result.data });
+      }
+    }
+    const sequence = ++saveSequence.current;
+    setSaveStatus("Salvando…");
+    void act({ type: "settings.update", patch })
+      .then(() => {
+        if (sequence === saveSequence.current)
+          setSaveStatus("Tudo salvo neste computador.");
+      })
+      .catch(() => {
+        if (sequence === saveSequence.current)
+          setSaveStatus(
+            "Não foi possível salvar. Altere o campo para tentar novamente.",
+          );
+      });
+  }
   const [paths, setPaths] = useState({ data: "", backup: "" });
-  const [saving, setSaving] = useState(false);
   const [restore, setRestore] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
   useEffect(() => {
@@ -31,20 +64,7 @@ export default function Settings() {
           <p>Um ritmo possível é melhor que uma rotina impossível.</p>
         </div>
       </div>
-      <form
-        className="settings-grid"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setSaving(true);
-          try {
-            await act({ type: "settings.update", patch: settings });
-            notify("Preferências salvas.");
-          } catch {
-          } finally {
-            setSaving(false);
-          }
-        }}
-      >
+      <form className="settings-grid" onSubmit={(e) => e.preventDefault()}>
         <article className="panel settings-panel">
           <span className="eyebrow">VOCÊ & SEU RITMO</span>
           <h2>Pequenos compromissos.</h2>
@@ -64,8 +84,8 @@ export default function Settings() {
               Meta diária (minutos)
               <input
                 type="number"
-                min={5}
-                max={720}
+                min={1}
+                max={1440}
                 required
                 value={settings.dailyMinutes}
                 onChange={(e) =>
@@ -97,7 +117,7 @@ export default function Settings() {
               <input
                 type="number"
                 min={1}
-                max={180}
+                max={240}
                 required
                 value={settings.focusMinutes}
                 onChange={(e) =>
@@ -183,11 +203,9 @@ export default function Settings() {
               }
             />
           </label>
-          <div className="save-settings">
-            <button className="button primary" disabled={saving}>
-              {saving ? "Salvando…" : "Salvar preferências"}
-            </button>
-          </div>
+          <p className="microcopy" role="status">
+            {saveStatus}
+          </p>
         </article>
       </form>
       <article className="panel backup-panel">
@@ -253,8 +271,9 @@ export default function Settings() {
             try {
               const next = await api.restoreBackup();
               if (next) {
+                clearActivity();
                 replace(next);
-                setSettings(next.settings);
+                setDraft(next.settings);
                 notify("Backup restaurado. Seu Ninho está de volta.");
               }
             } catch (e) {

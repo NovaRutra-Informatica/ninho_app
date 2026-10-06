@@ -490,7 +490,6 @@ export class StudyStore {
           throw new Error(
             "Um anexo mudou durante a verificação de segurança. Tente restaurar novamente.",
           );
-        // The safety ZIP verifies the whole file; this check only reads its signature.
         header = Buffer.alloc(Math.min(material.size, 8192));
         let offset = 0;
         while (offset < header.length) {
@@ -533,7 +532,6 @@ export class StudyStore {
       await this.prepareDirectories();
       const staging = await fs.mkdtemp(path.join(this.directory, ".restore-"));
       try {
-        // Verify every entry before changing the active collection.
         const restored = await readBackupFile(source, staging);
         let restorationNotice: string | undefined;
         let oldState: AppState | undefined;
@@ -671,7 +669,6 @@ function readEntry(entry: AdmZip.IZipEntry, maximum: number): Buffer {
   return data;
 }
 
-/** Small-buffer compatibility reader. Desktop restoration uses readBackupFile. */
 export function readBackup(data: Buffer): {
   state: AppState;
   materials: Map<string, Buffer>;

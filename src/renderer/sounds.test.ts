@@ -129,7 +129,7 @@ describe("sounds from persisted study actions", () => {
     before.settings.sound = false;
     expect(
       outcome({ type: "settings.update", patch: { sound: true } }, before),
-    ).toBe("save");
+    ).toBeNull();
     expect(
       outcome(
         {
@@ -322,7 +322,7 @@ describe("optional synthesized audio lifecycle", () => {
       const player = new StudySoundPlayer(fake.asAudio);
       player.setEnabled(true);
       await player.play(cue);
-      expect(fake.oscillators.length).toBeGreaterThanOrEqual(2);
+      expect(fake.oscillators.length).toBeGreaterThanOrEqual(1);
       expect(fake.oscillators.length).toBeLessThanOrEqual(3);
       for (const [index, oscillator] of fake.oscillators.entries()) {
         const gain = fake.gains[index];
@@ -336,7 +336,7 @@ describe("optional synthesized audio lifecycle", () => {
           gain.gain.exponentialRampToValueAtTime.mock.calls[0][0],
         ).toBeGreaterThan(0);
         expect(oscillator.stop.mock.calls[0][0]).toBeLessThan(
-          fake.context.currentTime + 0.55,
+          fake.context.currentTime + 0.75,
         );
         oscillator.onended?.();
         expect(oscillator.disconnect).toHaveBeenCalledOnce();
@@ -358,15 +358,15 @@ describe("optional synthesized audio lifecycle", () => {
     player.setEnabled(true);
     await player.play("save");
     await player.play("save");
-    expect(fake.oscillators).toHaveLength(2);
+    expect(fake.oscillators).toHaveLength(1);
     await player.play("focusDone");
-    expect(fake.oscillators).toHaveLength(5);
+    expect(fake.oscillators).toHaveLength(3);
     expect(fake.oscillators[0].stop).toHaveBeenCalledTimes(2);
     await player.play("review");
-    expect(fake.oscillators).toHaveLength(5);
+    expect(fake.oscillators).toHaveLength(3);
     await vi.advanceTimersByTimeAsync(250);
     await player.play("review");
-    expect(fake.oscillators).toHaveLength(7);
+    expect(fake.oscillators).toHaveLength(4);
     player.close();
   });
   it("reuses the live context, closes after idle, and lazily creates a new one", async () => {

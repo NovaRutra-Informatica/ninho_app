@@ -175,9 +175,9 @@ describe("Íris: acompanhamento local baseado nos registros reais", () => {
   it("separa cartões praticados, revisões, dúvidas e atualização de fontes sem fingir medir domínio", async () => {
     const { api } = await mount();
     expect(
-      screen.getByRole("heading", { name: "Seu próximo passo, com a Íris." }),
+      screen.getByRole("heading", { name: "Minha assistente" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("ASSISTENTE LOCAL")).toBeInTheDocument();
+    expect(screen.getByText("ACOMPANHAMENTO LOCAL")).toBeInTheDocument();
     expect(
       screen.getByText("cartões já praticados").closest("article"),
     ).toHaveTextContent("3");
@@ -219,8 +219,8 @@ describe("Íris: acompanhamento local baseado nos registros reais", () => {
     );
   });
 
-  it("filtra por matéria fora de TI e envia o contexto ao componente real de conversa com IA", async () => {
-    const { api } = await mount();
+  it("filtra matérias e acompanha registros sem abrir ou consultar um modelo", async () => {
+    const { api, onNavigate } = await mount();
     fireEvent.change(screen.getByLabelText("Matéria para a Íris analisar"), {
       target: { value: "portugues" },
     });
@@ -228,36 +228,15 @@ describe("Íris: acompanhamento local baseado nos registros reais", () => {
     expect(
       screen.queryByTestId("mentor-insight-banco"),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId("mentor-insight-literatura"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByTestId("ai-chat").querySelector(".ai-context"),
-    ).toHaveTextContent("Língua Portuguesa");
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "Converse com Íris" }),
-      { target: { value: "Como posso praticar interpretação de texto?" } },
+    expect(screen.queryByTestId("ai-chat")).not.toBeInTheDocument();
+    expect(api.aiStatus).not.toHaveBeenCalled();
+    expect(api.aiChat).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Editar meu perfil e recursos opcionais/,
+      }),
     );
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Enviar à Íris" }));
-    });
-    expect(api.aiChat).toHaveBeenCalledWith({
-      requestId: expect.any(String),
-      modelId: "qwen/test-4b",
-      subjectId: "portugues",
-      messages: [
-        {
-          role: "user",
-          content: "Como posso praticar interpretação de texto?",
-        },
-      ],
-    });
-    expect(
-      screen.getByRole("log", { name: "Conversa com Íris" }),
-    ).toHaveTextContent(
-      "Podemos rever um exemplo de Língua Portuguesa e praticar juntos.",
-    );
-    expect(api.dispatch).not.toHaveBeenCalled();
+    expect(onNavigate).toHaveBeenCalledWith("profile");
   });
 
   it("usa os atalhos de sinais para distinguir esquecimento, dúvidas e fonte desatualizada", async () => {

@@ -85,9 +85,6 @@ test("migra o perfil v1 preservando integralmente estudos, revisões, anexos e p
   await page
     .getByRole("textbox", { name: "Como quer ser chamado?", exact: true })
     .fill("Perfil migrado e salvo");
-  await page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.name)
     .toBe("Perfil migrado e salvo");

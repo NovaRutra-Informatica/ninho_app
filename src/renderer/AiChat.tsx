@@ -42,13 +42,14 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
   const [working, setWorking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const pending = useRef<string | null>(null);
+  const cancelled = useRef(new Set<string>());
   const refreshRequest = useRef(0);
   const alive = useRef(true);
   const lastMessage = useRef<HTMLDivElement>(null);
   const available = Boolean(api.aiChat && api.aiStatus);
 
   const refresh = async () => {
-    if (!api.aiStatus) return;
+    if (!api.aiStatus || document.hidden) return;
     const request = ++refreshRequest.current;
     setRefreshing(true);
     try {
@@ -79,7 +80,17 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
   useEffect(() => {
     alive.current = true;
     void refresh();
+    const cancelHidden = () => {
+      if (pending.current && (document.hidden || !document.hasFocus())) {
+        cancelled.current.add(pending.current);
+        void api.aiCancel?.(pending.current).catch(() => undefined);
+      }
+    };
+    document.addEventListener("visibilitychange", cancelHidden);
+    window.addEventListener("blur", cancelHidden);
     return () => {
+      document.removeEventListener("visibilitychange", cancelHidden);
+      window.removeEventListener("blur", cancelHidden);
       alive.current = false;
       refreshRequest.current++;
       if (pending.current)
@@ -97,6 +108,7 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
     const text = question.trim();
     if (
       !text ||
+      document.hidden ||
       !modelId ||
       !api.aiChat ||
       pending.current ||
@@ -125,7 +137,7 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
         messages: history,
         ...(subjectId ? { subjectId } : {}),
       });
-      if (alive.current)
+      if (alive.current && !cancelled.current.has(id))
         setMessages((previous) => [
           ...previous,
           { role: "assistant", content: reply.content },
@@ -137,6 +149,11 @@ export default function AiChat({ subjectId = "" }: { subjectId?: string }) {
         setMessages((previous) => previous.slice(0, -1));
       }
     } finally {
+      if (cancelled.current.has(id) && alive.current)
+        setError(
+          "Geração interrompida ao sair do aplicativo. Você pode tentar novamente quando voltar.",
+        );
+      cancelled.current.delete(id);
       pending.current = null;
       if (alive.current) {
         setWorking(false);

@@ -37,9 +37,6 @@ test("preferências de estudo e acessibilidade persistem após reiniciar", async
   await page.getByRole("button", { name: "Escuro", exact: true }).click();
   await page.getByRole("checkbox", { name: /Sons do Ninho/ }).uncheck();
   await page.getByRole("checkbox", { name: /Reduzir animações/ }).check();
-  await page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.name)
     .toBe("Alessandro — teste");
@@ -61,9 +58,9 @@ test("preferências de estudo e acessibilidade persistem após reiniciar", async
   );
   await expect(page.locator("html")).toHaveCSS(
     "background-color",
-    "rgb(23, 36, 31)",
+    "rgb(23, 25, 30)",
   );
-  await expect(page.locator("html")).toHaveCSS("color", "rgb(230, 237, 223)");
+  await expect(page.locator("html")).toHaveCSS("color", "rgb(238, 239, 242)");
   await testInfo.attach("tema-escuro", {
     body: await page.screenshot(),
     contentType: "image/png",
@@ -81,9 +78,6 @@ test("preferências de estudo e acessibilidade persistem após reiniciar", async
     ninho.page.getByRole("checkbox", { name: /Reduzir animações/ }),
   ).toBeChecked();
   await ninho.page.getByRole("button", { name: "Claro", exact: true }).click();
-  await ninho.page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.theme)
     .toBe("light");
@@ -93,9 +87,6 @@ test("preferências de estudo e acessibilidade persistem após reiniciar", async
   });
   await ninho.page
     .getByRole("button", { name: "Sistema", exact: true })
-    .click();
-  await ninho.page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
     .click();
   await expect
     .poll(async () => (await ninho.state()).settings.theme)
@@ -126,9 +117,6 @@ test("backup restaura dados e anexos, cancelamento e arquivo inválido preservam
   await page
     .getByLabel("Como quer ser chamado?")
     .fill("Nome guardado no backup");
-  await page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.name)
     .toBe("Nome guardado no backup");
@@ -161,9 +149,6 @@ test("backup restaura dados e anexos, cancelamento e arquivo inválido preservam
   await page
     .getByLabel("Como quer ser chamado?")
     .fill("Nome posterior ao backup");
-  await page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.name)
     .toBe("Nome posterior ao backup");

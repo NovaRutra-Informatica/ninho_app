@@ -26,7 +26,6 @@ if ([string]::IsNullOrWhiteSpace($ReportPath)) {
 }
 $reportFile = [IO.Path]::GetFullPath($ReportPath)
 
-# Reject links so the report path cannot escape .cache.
 if (-not $reportFile.StartsWith($cachePath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetExtension($reportFile) -ne '.json') {
   Write-Error 'The report must be a JSON file inside this project''s .cache directory.' -ErrorAction Continue
   exit 1

@@ -25,8 +25,9 @@ export function browserApi(): NativeApi {
   return {
     load: async () => get(),
     dispatch: async (command) => {
-      state = applyCommand(get(), command);
-      localStorage.setItem(key, JSON.stringify(state));
+      const next = applyCommand(get(), command);
+      localStorage.setItem(key, JSON.stringify(next));
+      state = next;
       return state;
     },
     importMaterials: unavailable,

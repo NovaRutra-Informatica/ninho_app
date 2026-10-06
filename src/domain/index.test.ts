@@ -304,7 +304,7 @@ describe("commands", () => {
   });
   it.each([
     { dailyMinutes: 0 },
-    { dailyMinutes: 721 },
+    { dailyMinutes: 1441 },
     { newCardsPerDay: -1 },
     { newCardsPerDay: 201 },
     { newCardsPerDay: 1.5 },

@@ -8,6 +8,9 @@
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
+    "native:build": "powershell -NoProfile -File scripts/native.ps1 -Action Build",
+    "native:test": "powershell -NoProfile -File scripts/native.ps1 -Action Test",
+    "native:publish": "powershell -NoProfile -File scripts/native.ps1 -Action Publish",
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build && node scripts/build-main.mjs",
     "test": "vitest run",

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import seed from "../../resources/seed.json";
+import { emptyProfile, profileContext } from "../shared/profile";
 import type {
   AppState,
   Command,
@@ -64,9 +65,9 @@ const webUrl = z
 export const settingsSchema = z
   .object({
     name: label(100),
-    dailyMinutes: integer(5, 720),
+    dailyMinutes: integer(1, 1440),
     newCardsPerDay: integer(0, 200),
-    focusMinutes: integer(1, 180),
+    focusMinutes: integer(1, 240),
     breakMinutes: integer(1, 60),
     theme: z.enum(["light", "dark", "system"]),
     sound: z.boolean(),
@@ -207,10 +208,39 @@ const taskSchema = z
     completed: z.boolean(),
   })
   .strict();
+export const profileSchema = z
+  .object({
+    name: text(100),
+    goal: text(400),
+    motivation: text(300),
+    targetDate: text(40),
+    subjects: text(300),
+    level: text(160),
+    routine: text(400),
+    availableDays: z
+      .array(z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]))
+      .max(7)
+      .refine((days) => new Set(days).size === days.length),
+    preferredTime: text(160),
+    dailyMinutes: integer(1, 1440),
+    sessionMinutes: integer(1, 240),
+    challenges: text(400),
+    preferences: text(300),
+    accessibility: text(240),
+    completedAt: timestamp.nullable(),
+    updatedAt: timestamp.nullable(),
+    revision: integer(0, 1_000_000),
+    plan: text(16_000),
+    planStatus: z.enum(["none", "pending", "ready", "error"]),
+    planProfileRevision: integer(0, 1_000_000),
+    tutorialsSeen: z.array(text(40)).max(32),
+  })
+  .strict();
 export const stateSchema = z
   .object({
     version: z.literal(2),
     settings: settingsSchema,
+    profile: profileSchema.nullable().optional(),
     programs: z.array(programSchema).max(500),
     subjects: z.array(subjectSchema).max(500),
     courses: z.array(courseSchema).max(5_000),
@@ -281,6 +311,25 @@ export function migrateState(input: unknown): unknown {
 }
 
 const commandSchema = z.discriminatedUnion("type", [
+  z
+    .object({ type: z.literal("profile.save"), profile: profileSchema })
+    .strict(),
+  z
+    .object({
+      type: z.literal("profile.plan"),
+      revision: integer(0, 1_000_000),
+      plan: text(16_000),
+      status: z.enum(["none", "pending", "ready", "error"]),
+      contextKey: text(16000).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("profile.tutorial"),
+      page: label(40),
+      seen: z.boolean(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("settings.update"),
@@ -445,7 +494,6 @@ function validNow(date: Date): Date {
   return date;
 }
 
-// Calendar dates use local time, not UTC.
 export function localDate(date: Date = new Date()): string {
   validNow(date);
   return `${date.getFullYear().toString().padStart(4, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
@@ -456,6 +504,7 @@ export function createInitialState(now: Date = new Date()): AppState {
   const state = validateState(seed);
   return {
     ...state,
+    profile: emptyProfile(),
     cards: state.cards.map((card) => ({
       ...card,
       createdAt: instant,
@@ -469,7 +518,6 @@ export interface LessonStudyStats {
   sessionCount: number;
 }
 
-// A zero-minute review must not count as study time.
 export function getLessonStudyStats(
   state: AppState,
 ): Record<string, LessonStudyStats> {
@@ -560,6 +608,71 @@ export function applyCommand(
   switch (command.type) {
     case "settings.update":
       next = { ...state, settings: { ...state.settings, ...command.patch } };
+      if (
+        state.profile &&
+        (command.patch.name !== undefined ||
+          command.patch.dailyMinutes !== undefined ||
+          command.patch.focusMinutes !== undefined)
+      ) {
+        next.profile = {
+          ...state.profile,
+          name: next.settings.name,
+          dailyMinutes: next.settings.dailyMinutes,
+          sessionMinutes: next.settings.focusMinutes,
+          updatedAt: instant,
+          revision: state.profile.revision + 1,
+          planStatus: "none",
+        };
+      }
+      break;
+    case "profile.save":
+      next = {
+        ...state,
+        profile: {
+          ...command.profile,
+          revision: (state.profile?.revision ?? 0) + 1,
+          updatedAt: instant,
+          planStatus: "none",
+          tutorialsSeen:
+            state.profile?.tutorialsSeen ?? command.profile.tutorialsSeen,
+        },
+        settings: {
+          ...state.settings,
+          name: command.profile.name.trim() || state.settings.name,
+          dailyMinutes: command.profile.dailyMinutes,
+          focusMinutes: command.profile.sessionMinutes,
+        },
+      };
+      break;
+    case "profile.plan":
+      if (
+        state.profile?.revision === command.revision &&
+        (command.contextKey === undefined ||
+          command.contextKey === JSON.stringify(profileContext(state.profile)))
+      )
+        next = {
+          ...state,
+          profile: {
+            ...state.profile,
+            plan: command.plan,
+            planStatus: command.status,
+            planProfileRevision: command.revision,
+          },
+        };
+      break;
+    case "profile.tutorial":
+      if (state.profile)
+        next = {
+          ...state,
+          profile: {
+            ...state.profile,
+            tutorialsSeen: command.seen
+              ? [...new Set([...state.profile.tutorialsSeen, command.page])]
+              : state.profile.tutorialsSeen.filter(
+                  (page) => page !== command.page,
+                ),
+          },
+        };
       break;
     case "program.save":
       next = {

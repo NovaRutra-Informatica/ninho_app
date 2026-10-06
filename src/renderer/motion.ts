@@ -44,7 +44,6 @@ export function transitionPage(update: () => void, preference = false): void {
           try {
             animation.finish();
           } catch {
-            // Unsupported timelines must not block navigation.
           }
         }
       }

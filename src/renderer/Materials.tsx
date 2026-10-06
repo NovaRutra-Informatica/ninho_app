@@ -194,7 +194,6 @@ export default function Materials({
       if (generation === modalGeneration.current) setSelected(updated);
       notify("Material atualizado.");
     } catch {
-      // Keep edits for retry; AppProvider reports the error.
     } finally {
       savesPending.current.delete(materialId);
       if (generation === modalGeneration.current) setSaving(false);

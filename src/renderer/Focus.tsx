@@ -3,6 +3,7 @@ import { Coffee, Play, Pause, RotateCcw, Check, Timer } from "lucide-react";
 import type { AppState } from "../shared/types";
 import { useApp } from "./store";
 import { Modal, SubjectSelect, timeText, uid } from "./ui";
+import { recordActivity } from "./activity";
 
 type FocusMode = "focus" | "break";
 interface TimerState {
@@ -284,7 +285,6 @@ export function useFocus() {
         ),
       );
     } catch {
-      /* Keep elapsed time for retry; AppProvider reports the error. */
     } finally {
       finishing.current = false;
       setSaving(false);
@@ -295,6 +295,8 @@ export function useFocus() {
   }, [remaining, timer.running]);
   const toggle = () => {
     if (finishing.current) return;
+    if (timer.running && timer.mode === "focus")
+      recordActivity("focus", { focusPauses: 1 });
     const currentTime = Date.now();
     setNow(currentTime);
     setTimer((current) =>

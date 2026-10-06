@@ -86,17 +86,11 @@ test("sons reais acompanham ações persistidas, liberam áudio ocioso e respeit
   await page.getByTestId("nav-settings").click();
   await page.getByRole("checkbox", { name: /Sons do Ninho/ }).check();
   expect((await evidence()).created).toBe(0);
-  await page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.sound)
     .toBe(true);
-  await expect
-    .poll(async () => (await evidence()).frequencies)
-    .toEqual([659.25, 783.99]);
-  await expect.poll(async () => (await evidence()).peak).toBeGreaterThan(0.001);
-  await expect.poll(async () => (await evidence()).closed).toBe(1);
+  expect((await evidence()).frequencies).toEqual([]);
+  expect((await evidence()).closed).toBe(0);
 
   const state = await ninho.state();
   const subject = state.subjects.find((entry) => entry.name === "Literatura")!;
@@ -113,9 +107,10 @@ test("sons reais acompanham ações persistidas, liberam áudio ocioso e respeit
     )
     .toBe("done");
   await expect
-    .poll(async () => (await evidence()).frequencies.slice(2))
-    .toEqual([659.25, 783.99, 1046.5]);
-  await expect.poll(async () => (await evidence()).closed).toBe(2);
+    .poll(async () => (await evidence()).frequencies)
+    .toEqual([523.25, 659.25]);
+  await expect.poll(async () => (await evidence()).peak).toBeGreaterThan(0.001);
+  await expect.poll(async () => (await evidence()).closed).toBe(1);
 
   await page.getByTestId("nav-reviews").click();
   await page
@@ -135,9 +130,9 @@ test("sons reais acompanham ações persistidas, liberam áudio ocioso e respeit
     )
     .toBe(1);
   await expect
-    .poll(async () => (await evidence()).frequencies.slice(5))
-    .toEqual([523.25, 659.25]);
-  await expect.poll(async () => (await evidence()).closed).toBe(3);
+    .poll(async () => (await evidence()).frequencies.slice(2))
+    .toEqual([587.33]);
+  await expect.poll(async () => (await evidence()).closed).toBe(2);
 
   await page.getByTestId("open-focus").click();
   await page.getByTestId("focus-start").click();
@@ -151,12 +146,12 @@ test("sons reais acompanham ações persistidas, liberam áudio ocioso e respeit
     )
     .toBe(1);
   await expect
-    .poll(async () => (await evidence()).frequencies.slice(7))
-    .toEqual([523.25, 659.25, 880]);
+    .poll(async () => (await evidence()).frequencies.slice(3))
+    .toEqual([440, 659.25]);
   await page
     .getByRole("button", { name: "Fechar janela", exact: true })
     .click();
-  await expect.poll(async () => (await evidence()).closed).toBe(4);
+  await expect.poll(async () => (await evidence()).closed).toBe(3);
   const played = await evidence();
   expect(played.peak).toBeLessThan(0.15);
   await testInfo.attach("audio-real-silenciado-na-saida", {
@@ -166,9 +161,6 @@ test("sons reais acompanham ações persistidas, liberam áudio ocioso e respeit
 
   await page.getByTestId("nav-settings").click();
   await page.getByRole("checkbox", { name: /Sons do Ninho/ }).uncheck();
-  await page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.sound)
     .toBe(false);

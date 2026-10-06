@@ -377,7 +377,6 @@ export function getMentorOverview(
   const allActions = subjects.map((insight) =>
     actionsForSubject(state, insight, now),
   );
-  // Give each subject one task before filling the remaining slots.
   const recommendations = allActions
     .map((actions) => actions[0])
     .filter((action): action is MentorAction => Boolean(action));

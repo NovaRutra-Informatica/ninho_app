@@ -10,16 +10,15 @@ test("Íris distingue falta de histórico, filtra diagnósticos e não inventa p
   )!;
   await page.getByTestId("nav-mentor").click();
   await expect(
-    page.getByRole("heading", { name: "Seu próximo passo, com a Íris." }),
+    page.getByRole("heading", { name: "Minha assistente" }),
   ).toBeVisible();
   const insight = page.getByTestId(`mentor-insight-${literature.id}`);
   await expect(insight).toContainText("Ainda sem evidência");
   await expect(insight).toContainText("Isso não mede domínio da matéria.");
   expect(await ninho.state()).toEqual(before);
   await page.getByTestId("mentor-subject-filter").selectOption(literature.id);
-  await expect(
-    page.getByTestId("ai-chat").locator(".ai-context"),
-  ).toContainText("Literatura");
+  await expect(page.getByTestId("ai-chat")).toHaveCount(0);
+  await expect(page.getByRole("region",{name:"Acompanhamento proativo"})).toBeVisible();
   await page
     .getByRole("combobox", { name: "Filtrar sinais do estudo" })
     .selectOption("outdated");

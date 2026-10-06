@@ -1,41 +1,43 @@
 # Ninho para Windows
 
-Aplicativo de estudos para Windows 11 em Electron, React e TypeScript. Este repositório contém a versão Windows; o aplicativo instalado e os dados pessoais continuam nos seus locais atuais.
+Aplicativo de estudos offline. O projeto nativo de Windows foi movido para **`C:\Users\aless\RiderProjects\Ninho`**, em C#, .NET 10, WinUI 3 e Windows App SDK. Esta pasta mantém a implementação React/Electron anterior para comparação.
 
-## Ambiente
+## Versão nativa no Rider
 
-```powershell
-npm ci
-npm run build
-npm test
-npm start
-```
-
-Para desenvolvimento, execute `npm run dev` e use as orientações de [LEIA-ME.md](LEIA-ME.md). O Node.js e as dependências locais já estão disponíveis neste computador. `package-lock.json` deve ser versionado; `node_modules`, pacotes gerados, relatórios, segredos e coleções pessoais estão no `.gitignore`.
-
-Depois da separação dos repositórios, `npm run build` passou novamente, incluindo a verificação TypeScript. O aviso existente sobre o tamanho do bundle não impede a compilação.
-
-## Repositórios independentes
-
-As pastas ficam lado a lado dentro da pasta do usuário:
-
-| Versão  | Pasta           | Estado                                             |
-| ------- | --------------- | -------------------------------------------------- |
-| Windows | `Ninho`         | Aplicativo existente                               |
-| iPhone  | `Ninho-iOS`     | Projeto Swift existente; build iOS exige Mac/Xcode |
-| Web     | `Ninho-Web`     | Ambiente inicial preparado                         |
-| Android | `Ninho-Android` | Ambiente inicial preparado                         |
-
-Cada pasta possui seu próprio `.git`. A separação preserva o histórico existente do Windows; a saída dos arquivos iOS aparece como remoção neste repositório, pois agora ficam no repositório próprio. Não foi criado commit nem preparado o staging durante esta separação. Não há remote configurado automaticamente.
-
-Depois de revisar, execute em cada pasta:
+No Rider, abra `C:\Users\aless\RiderProjects\Ninho\Ninho.slnx`, selecione `Ninho.Windows` e plataforma **x64**. O projeto nativo contém seus próprios recursos, fontes, testes e scripts; não precisa de Node ou Electron.
 
 ```powershell
-git status
-git add .
-git commit -m "Prepara projeto Ninho"
+Set-Location C:\Users\aless\RiderProjects\Ninho
+.\build.ps1 -Action Test
+.\build.ps1 -Action Build
+.\build.ps1 -Action Publish
+.\install-preview.ps1
 ```
 
-O catálogo e os documentos sintéticos usados nos testes são fontes do projeto. PDFs pessoais, backups de estudo, credenciais e chaves de assinatura não devem ser adicionados ao Git. Resultados anteriores estão em [VALIDACAO.md](VALIDACAO.md).
+A publicação fica em `C:\Users\aless\RiderProjects\Ninho\artifacts\windows-x64`. O instalador atualiza somente **Ninho Nativo (Teste)**, mantendo a instalação antiga. Os atalhos npm `native:build`, `native:test` e `native:publish` desta pasta ainda encaminham para o projeto do Rider.
 
-A verificação de segurança da versão 1.1.5 está em [SEGURANCA.md](SEGURANCA.md), com resultados do npm, revisão do Electron/Chromium, correção da política de conteúdo e limites conhecidos. A configuração local do Dependabot prepara consultas semanais; não houve publicação nem ativação de serviços no GitHub. O pacote 1.1.5 está preparado, e a instalação pessoal permanece na versão 1.1.4.
+Consulte `README.md` e `DevDocs/VALIDATION.md` no projeto nativo para migração de dados, acompanhamento local, perfil, tutoriais e limites verificados. O acompanhamento analítico vem incluído; um GGUF é opcional apenas para elaborar texto nas opções avançadas do perfil.
+
+Os dados nativos permanecem em `%LOCALAPPDATA%\Ninho\native`, independentes dos originais em `%APPDATA%\Ninho`. A mudança da pasta de desenvolvimento não move os dados nem as instalações. `NINHO_DATA_DIR` permite testes isolados.
+
+## Referência anterior
+
+O código React/Electron em `src/` foi preservado para comparação de design, comportamento e compatibilidade dos dados. Os comandos antigos `npm run build`, `npm test` e `npm start` ainda se referem a essa versão. A versão nativa não executa esse frontend e não utiliza WebView.
+
+A comparação visual foi retomada com autorização do usuário. A equivalência de todas as telas, temas e escalas ainda está sendo conferida contra a instalação original.
+
+## Repositórios
+
+| Plataforma | Repositório local | Implementação |
+| --- | --- | --- |
+| Windows nativo | `C:\Users\aless\RiderProjects\Ninho` | C#/.NET 10 e WinUI 3; motor analítico incluído, GGUF opcional avançado |
+| Windows anterior | `C:\Users\aless\WebstormProjects\Ninho` | React/Electron, referência preservada; acompanhamento local e LLM opcional |
+| iPhone | `C:\Users\aless\Ninho-iOS` | SwiftUI e motor analítico local incluído; build iOS exige Mac/Xcode |
+| Web | `C:\Users\aless\WebstormProjects\Ninho-Web` | React estático, armazenamento no navegador e resumo estatístico descritivo, sem IA |
+| Android | `C:\Users\aless\StudioProjects\Ninho-Android` | Kotlin/Compose, análise local incluída e LiteRT-LM opcional avançado |
+
+As plataformas mantêm sua documentação de validação. O projeto .NET foi extraído da antiga pasta `windows/`, que ainda não havia sido commitada; a mudança não criou commits. Os formatos de dados entre plataformas ainda não constituem um protocolo de sincronização comum.
+
+Arquivos pessoais, materiais importados, backups, pesos de modelos, saídas de compilação e credenciais não devem ser versionados.
+
+Documentação auxiliar: [domínio](devdocs/DOMINIO.md), [testes E2E](devdocs/TESTES-E2E.md), [critérios de aceitação](devdocs/ACCEPTANCE.md) e [resultados de interface](devdocs/RESULTADOS-E2E.md).

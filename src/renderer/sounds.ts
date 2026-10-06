@@ -3,23 +3,15 @@ import type { AppState, Command } from "../shared/types";
 export type SoundCue = "save" | "review" | "complete" | "focusDone";
 type Tone = { frequency: number; delay: number; duration: number };
 export const soundCues: Readonly<Record<SoundCue, readonly Tone[]>> = {
-  save: [
-    { frequency: 659.25, delay: 0, duration: 0.09 },
-    { frequency: 783.99, delay: 0.06, duration: 0.09 },
-  ],
-  review: [
-    { frequency: 523.25, delay: 0, duration: 0.11 },
-    { frequency: 659.25, delay: 0.08, duration: 0.12 },
-  ],
+  save: [{ frequency: 523.25, delay: 0, duration: 0.12 }],
+  review: [{ frequency: 587.33, delay: 0, duration: 0.18 }],
   complete: [
-    { frequency: 659.25, delay: 0, duration: 0.15 },
-    { frequency: 783.99, delay: 0.1, duration: 0.15 },
-    { frequency: 1046.5, delay: 0.21, duration: 0.17 },
+    { frequency: 523.25, delay: 0, duration: 0.2 },
+    { frequency: 659.25, delay: 0.12, duration: 0.24 },
   ],
   focusDone: [
-    { frequency: 523.25, delay: 0, duration: 0.18 },
-    { frequency: 659.25, delay: 0.14, duration: 0.18 },
-    { frequency: 880, delay: 0.28, duration: 0.2 },
+    { frequency: 440, delay: 0, duration: 0.32 },
+    { frequency: 659.25, delay: 0.24, duration: 0.4 },
   ],
 };
 const priority: Record<SoundCue, number> = {
@@ -41,7 +33,10 @@ export function soundAfterCommand(
   if (!after.settings.sound) return null;
   switch (command.type) {
     case "settings.update":
-      return changed(before.settings, after.settings) ? "save" : null;
+    case "profile.save":
+    case "profile.plan":
+    case "profile.tutorial":
+      return null;
     case "lesson.update": {
       const old = item(before.lessons, command.id);
       const next = item(after.lessons, command.id);
@@ -203,7 +198,7 @@ export class StudySoundPlayer {
         oscillator.type = "sine";
         oscillator.frequency.setValueAtTime(tone.frequency, at);
         gain.gain.setValueAtTime(0, at);
-        gain.gain.linearRampToValueAtTime(0.045, at + 0.012);
+        gain.gain.linearRampToValueAtTime(0.022, at + 0.025);
         gain.gain.exponentialRampToValueAtTime(0.0001, at + tone.duration);
         oscillator.connect(gain);
         gain.connect(context.destination);
@@ -233,7 +228,6 @@ export class StudySoundPlayer {
       try {
         void context.close().catch(() => {});
       } catch {
-        /* unavailable audio */
       }
     }
   }
@@ -251,13 +245,11 @@ export class StudySoundPlayer {
       try {
         oscillator.stop();
       } catch {
-        /* already ended */
       }
       try {
         oscillator.disconnect();
         gain.disconnect();
       } catch {
-        /* closed context */
       }
     }
     this.voices.clear();

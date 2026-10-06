@@ -1,6 +1,5 @@
 const fallbackMessage = "Não foi possível concluir esta ação. Tente novamente.";
 
-/** Removes Electron's transport envelope while keeping the actual failure reason. */
 export function errorMessage(
   error: unknown,
   fallback = fallbackMessage,

@@ -10,6 +10,7 @@ import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import type { AppState } from "../../src/shared/types";
+import { createInitialState } from "../../src/domain";
 
 export const projectDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -31,7 +32,6 @@ export interface NinhoTestApp {
 }
 
 export function minimalPdf(paddingBytes = 0): Buffer {
-  // Colored vectors distinguish PDF page paint from viewer controls and thumbnails.
   const contents =
     "BT /F1 18 Tf 50 760 Td (Ninho - Material de teste) Tj ET\n" +
     "q 1 0 0.6 rg 50 660 120 60 re f Q\n" +
@@ -97,6 +97,11 @@ export const test = base.extend<{ ninho: NinhoTestApp } & ProfileOptions>({
     }
     const fixtureDir = path.join(testRoot, "imports");
     await fs.mkdir(fixtureDir, { recursive: true });
+    if (initialState === undefined) {
+      const existing = createInitialState();
+      delete existing.profile;
+      initialState = existing;
+    }
     if (initialState !== undefined) {
       await fs.mkdir(dataDir, { recursive: true });
       await fs.writeFile(

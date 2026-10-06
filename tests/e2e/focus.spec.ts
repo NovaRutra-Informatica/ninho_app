@@ -61,9 +61,6 @@ test("ao chegar a zero o foco é registrado uma vez e oferece uma pausa", async 
   const { page } = ninho;
   await page.getByTestId("nav-settings").click();
   await page.getByLabel("Tempo de foco (minutos)").fill("1");
-  await page
-    .getByRole("button", { name: "Salvar preferências", exact: true })
-    .click();
   await expect
     .poll(async () => (await ninho.state()).settings.focusMinutes)
     .toBe(1);

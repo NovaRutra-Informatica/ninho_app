@@ -1,3 +1,4 @@
+import type { StudentProfile } from "./profile";
 export type Track = "concurso" | "faculdade" | "pessoal";
 export type LessonStatus = "not-started" | "in-progress" | "done";
 export type Rating = "again" | "hard" | "good" | "easy";
@@ -100,6 +101,7 @@ export interface StudyTask {
 }
 export interface AppState {
   version: 2;
+  profile?: StudentProfile | null;
   settings: Settings;
   programs: StudyProgram[];
   subjects: Subject[];
@@ -113,6 +115,15 @@ export interface AppState {
 }
 export type Command =
   | { type: "settings.update"; patch: Partial<Settings> }
+  | { type: "profile.save"; profile: StudentProfile }
+  | {
+      type: "profile.plan";
+      revision: number;
+      plan: string;
+      status: StudentProfile["planStatus"];
+      contextKey?: string;
+    }
+  | { type: "profile.tutorial"; page: string; seen: boolean }
   | { type: "program.save"; program: StudyProgram }
   | {
       type: "subject.save";

@@ -241,7 +241,6 @@ test("importa PDF e texto, exibe prévia, guarda anotações e conserva os origi
   await modal
     .getByRole("button", { name: "Fechar janela", exact: true })
     .click();
-  // Move only the fixture original. The library must use its private copy.
   await fs.rename(
     originalPdf,
     path.join(ninho.fixtureDir, "original-movido.pdf"),

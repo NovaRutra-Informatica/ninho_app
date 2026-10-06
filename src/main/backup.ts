@@ -38,7 +38,6 @@ const crcTable = Uint32Array.from({ length: 256 }, (_, value) => {
   return crc >>> 0;
 });
 
-// Stream attachment bytes; retain only the 8 KiB signature.
 class Inspector {
   private hash = createHash("sha256");
   private crc = 0xffffffff;

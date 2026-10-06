@@ -33,6 +33,10 @@ import Materials from "./Materials";
 import Agenda from "./Agenda";
 import Settings from "./Settings";
 import Mentor from "./Mentor";
+import Profile from "./Profile";
+import Tutorial from "./Tutorial";
+import ProactiveCards from "./ProactiveCards";
+import { useRouteActivity } from "./activity";
 import type { Lesson } from "../shared/types";
 
 type Page =
@@ -43,7 +47,8 @@ type Page =
   | "agenda"
   | "progress"
   | "settings"
-  | "mentor";
+  | "mentor"
+  | "profile";
 type ReviewRoute = {
   mode: "home" | "library";
   filter: "all" | "outdated" | "relearn";
@@ -67,10 +72,16 @@ function Dashboard({
   go,
   openLesson,
   openFocus,
+  openAdvice,
 }: {
   go: (page: Page) => void;
   openLesson: (lesson: Lesson) => void;
   openFocus: () => void;
+  openAdvice: (
+    target: "reviews" | "studies" | "agenda" | "progress" | "profile",
+    subjectId?: string,
+    action?: MentorAction,
+  ) => void;
 }) {
   const { state, act } = useApp();
   const stats = getDashboardStats(state);
@@ -132,7 +143,7 @@ function Dashboard({
             Vamos estudar
             <ArrowRight size={18} />
           </button>
-          <small>Senado Federal · Análise e Suporte a Sistemas</small>
+          <small>{state.profile?.goal || "Um futuro em construção"}</small>
         </div>
         <div className="hero-mascot">
           <div className="orb orb-one" />
@@ -193,6 +204,16 @@ function Dashboard({
           <ChevronRight size={17} />
         </button>
       </div>
+      <ProactiveCards
+        compact
+        onAction={(target, id, action) =>
+          target === "focus"
+            ? openFocus()
+            : action
+              ? openAdvice(target, id, action)
+              : go(target)
+        }
+      />
       <div className="dashboard-columns">
         <div>
           <div className="section-title">
@@ -550,6 +571,9 @@ function Progress() {
 export default function App() {
   const { state } = useApp();
   const [page, setPage] = useState<Page>("today");
+  const [welcome, setWelcome] = useState(
+    Boolean(state.profile && !state.profile.completedAt),
+  );
   const [selected, setSelected] = useState("");
   const [selectedLesson, setSelectedLesson] = useState("");
   const [studiesVisit, setStudiesVisit] = useState(0);
@@ -557,6 +581,7 @@ export default function App() {
     useState<ReviewRoute>(defaultReviewRoute);
   const [focusOpen, setFocusOpen] = useState(false);
   const focus = useFocus();
+  useRouteActivity(welcome ? null : focusOpen ? "focus" : page);
   const stats = getDashboardStats(state);
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -601,7 +626,7 @@ export default function App() {
     setFocusOpen(true);
   };
   const navigateMentor = (
-    target: "reviews" | "studies" | "agenda" | "progress",
+    target: "reviews" | "studies" | "agenda" | "progress" | "profile",
     subjectId?: string,
     action?: MentorAction,
   ) => {
@@ -638,6 +663,7 @@ export default function App() {
     );
     return () => cancelAnimationFrame(frame);
   }, [page, selectedLesson, state.settings.reducedMotion]);
+  if (welcome) return <Profile welcome done={() => setWelcome(false)} />;
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -703,7 +729,11 @@ export default function App() {
             <Settings2 size={20} />
             Ajustes
           </button>
-          <div className="profile">
+          <button
+            className="profile"
+            aria-label="Meu perfil"
+            onClick={() => go("profile")}
+          >
             <div className="avatar">
               {state.settings.name[0]?.toUpperCase() || "A"}
             </div>
@@ -715,13 +745,14 @@ export default function App() {
               </small>
             </div>
             <span className="online-dot" title="Dados locais" />
-          </div>
+          </button>
         </div>
       </aside>
       <main className="main-content" id="main-content">
         <div className="content-inner">
           {page === "today" ? (
             <Dashboard
+              openAdvice={navigateMentor}
               go={go}
               openLesson={openLesson}
               openFocus={() => setFocusOpen(true)}
@@ -761,6 +792,8 @@ export default function App() {
             <Agenda />
           ) : page === "progress" ? (
             <Progress />
+          ) : page === "profile" ? (
+            <Profile />
           ) : page === "mentor" ? (
             <Mentor onNavigate={navigateMentor} openFocus={openMentorFocus} />
           ) : (
@@ -768,6 +801,7 @@ export default function App() {
           )}
         </div>
       </main>
+      {!focusOpen && <Tutorial key={page} page={page} />}
       {focusOpen && (
         <FocusModal focus={focus} close={() => setFocusOpen(false)} />
       )}

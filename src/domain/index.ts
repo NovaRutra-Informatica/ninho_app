@@ -1,5 +1,5 @@
 import { z } from "zod";
-import seed from "../../resources/seed.json";
+import seed from "../../resources/seed.json" with { type: "json" };
 import { emptyProfile, profileContext } from "../shared/profile";
 import type {
   AppState,

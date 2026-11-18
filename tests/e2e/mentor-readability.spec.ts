@@ -39,9 +39,6 @@ test("explicações da Íris são legíveis em janela compacta e respeitam movim
     ".mentor-intro small",
     ".mentor-limits li",
     ".mentor-subject-footer details li",
-    ".ai-status",
-    ".ai-context small",
-    ".ai-composer small",
   ];
   for (const selector of selectors) {
     const elements = page.locator(selector);
@@ -82,7 +79,7 @@ test("explicações da Íris são legíveis em janela compacta e respeitam movim
     return { client: main.clientWidth, scroll: main.scrollWidth, panels };
   });
   expect(layout.scroll).toBeLessThanOrEqual(layout.client + 1);
-  expect(layout.panels).toHaveLength(3);
+  expect(layout.panels).toHaveLength(2);
   for (let firstIndex = 0; firstIndex < layout.panels.length; firstIndex++) {
     for (
       let secondIndex = firstIndex + 1;
@@ -149,6 +146,24 @@ test("explicações da Íris são legíveis em janela compacta e respeitam movim
     path: testInfo.outputPath("mentor-textos-compacto.png"),
     contentType: "image/png",
   });
+
+  await page.getByRole("button", { name: "Meu perfil", exact: true }).click();
+  await page.getByRole("button", { name: "Recursos opcionais de IA" }).click();
+  await expect(page.getByTestId("ai-chat")).toBeVisible();
+  for (const selector of [".ai-status", ".ai-context small", ".ai-composer small"]) {
+    const elements = page.locator(selector);
+    expect(await elements.count(), `${selector} must exist in the real screen`).toBeGreaterThan(0);
+    const fonts = await elements.evaluateAll((elements) =>
+      elements.map((element) => ({
+        size: parseFloat(getComputedStyle(element).fontSize),
+        lineHeight: parseFloat(getComputedStyle(element).lineHeight),
+      })),
+    );
+    for (const font of fonts) {
+      expect(font.size, selector).toBeGreaterThanOrEqual(14);
+      expect(font.lineHeight, selector).toBeGreaterThanOrEqual(font.size * 1.35);
+    }
+  }
 
   await page.getByTestId("nav-settings").click();
   await page.getByRole("checkbox", { name: /Reduzir animações/ }).check();

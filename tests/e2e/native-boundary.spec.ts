@@ -19,8 +19,8 @@ test("o aplicativo abre localmente com catálogo completo e uma ponte nativa res
     body: JSON.stringify(runtime),
     contentType: "application/json",
   });
-  expect(runtime.electron).toBe("44.3.0");
-  expect(runtime.chromium).toBe("152.0.7977.78");
+  expect(runtime.electron).toBe("45.3.4");
+  expect(runtime.chromium).toBe("156.0.8078.100");
   expect(page.url()).toMatch(/^file:\/\//);
   const bridge = await page.evaluate(() => ({
     methods: Object.keys(window.ninho ?? {}).sort(),

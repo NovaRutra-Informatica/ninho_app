@@ -1,0 +1,77 @@
+<Window x:Class="Ninho.Windows.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:Ninho.Windows">
+  <Window.SystemBackdrop><MicaBackdrop Kind="BaseAlt" /></Window.SystemBackdrop>
+  <Grid x:Name="Root" Background="Transparent">
+    <Grid.RowDefinitions><RowDefinition Height="30" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+    <Grid x:Name="TitleBar" Background="Transparent" Padding="16,0,140,0">
+      <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <Image Source="ms-appx:///Assets/icon.png" Width="24" Height="24" />
+        <TextBlock Text="Ninho" VerticalAlignment="Center" FontWeight="SemiBold" />
+        <TextBlock x:Name="DistributionLabel" Text="Seu espaço de estudos" VerticalAlignment="Center" Opacity="0.6" Margin="8,0,0,0" FontSize="12" />
+      </StackPanel>
+    </Grid>
+    <NavigationView x:Name="Navigation" Grid.Row="1" PaneDisplayMode="Left" OpenPaneLength="230" IsPaneToggleButtonVisible="False" IsTitleBarAutoPaddingEnabled="False" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" ItemInvoked="NavigationInvoked" AlwaysShowHeader="False" Background="{ThemeResource NinhoSurfaceBrush}">
+      <NavigationView.Resources>
+        <Thickness x:Key="NavigationViewContentMargin">0</Thickness>
+        <CornerRadius x:Key="NavigationViewContentGridCornerRadius">0</CornerRadius>
+        <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
+        <Style TargetType="NavigationViewItem">
+          <Setter Property="Margin" Value="18,3" /><Setter Property="Height" Value="46" />
+          <Setter Property="Padding" Value="14,0" /><Setter Property="CornerRadius" Value="11" />
+          <Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Foreground" Value="{ThemeResource NinhoMutedBrush}" />
+          <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="NavigationViewItem">
+            <Border x:Name="NavItemRoot" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+              <VisualStateManager.VisualStateGroups><VisualStateGroup x:Name="CommonStates"><VisualState x:Name="Normal" /><VisualState x:Name="PointerOver"><VisualState.Setters><Setter Target="NavItemRoot.Opacity" Value="0.72" /></VisualState.Setters></VisualState><VisualState x:Name="Pressed"><VisualState.Setters><Setter Target="NavItemRoot.Opacity" Value="0.55" /></VisualState.Setters></VisualState></VisualStateGroup></VisualStateManager.VisualStateGroups>
+              <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center" HorizontalAlignment="Stretch" Foreground="{TemplateBinding Foreground}" />
+            </Border>
+          </ControlTemplate></Setter.Value></Setter>
+        </Style>
+      </NavigationView.Resources>
+      <NavigationView.PaneHeader>
+        <StackPanel Width="230" Margin="0,19,0,11">
+          <Button Click="OpenHome" Style="{StaticResource NinhoPlainButtonStyle}" Margin="27,0,0,40" HorizontalAlignment="Left" AutomationProperties.Name="Ninho, início">
+            <StackPanel Orientation="Horizontal" Spacing="9"><Grid Width="48" Height="52"><Grid.Clip><RectangleGeometry Rect="0,0,48,52"/></Grid.Clip><local:OwlControl Width="62" Height="61" Small="True" HorizontalAlignment="Left" Margin="-8,0,0,0" /></Grid><StackPanel VerticalAlignment="Center"><TextBlock Text="ninho" FontFamily="{StaticResource NinhoDisplayFont}" FontSize="31" FontWeight="Medium" CharacterSpacing="-48" /><TextBlock Text="seu próximo passo" FontSize="10" CharacterSpacing="70" Foreground="{ThemeResource NinhoMutedBrush}" Margin="0,3,0,0" /></StackPanel></StackPanel>
+          </Button>
+          <TextBlock Text="MEU ESPAÇO" FontSize="9" CharacterSpacing="222" Foreground="#97A49B" Margin="35,0,0,0" />
+        </StackPanel>
+      </NavigationView.PaneHeader>
+      <NavigationView.MenuItems>
+        <NavigationViewItem Tag="today" AutomationProperties.Name="Hoje" />
+        <NavigationViewItem Tag="studies" AutomationProperties.Name="Meus estudos" />
+        <NavigationViewItem Tag="reviews" AutomationProperties.Name="Revisões" />
+        <NavigationViewItem Tag="materials" AutomationProperties.Name="Materiais" />
+        <NavigationViewItem Tag="agenda" AutomationProperties.Name="Agenda" />
+        <NavigationViewItem Tag="progress" AutomationProperties.Name="Progresso" />
+        <NavigationViewItem Tag="mentor" AutomationProperties.Name="Minha assistente" />
+      </NavigationView.MenuItems>
+      <NavigationView.PaneFooter>
+        <StackPanel Width="194" Margin="18,28,18,18">
+          <Button x:Name="SidebarFocus" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="10,15" Margin="0,0,0,17" CornerRadius="12" Click="OpenTimer" Background="{ThemeResource NinhoSurfaceBrush}" BorderBrush="{ThemeResource NinhoLineBrush}" BorderThickness="1" AutomationProperties.Name="Hora de focar">
+            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="22"/><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/></Grid.ColumnDefinitions>
+              <local:OriginalIcon IconName="timer" Size="22" Foreground="{ThemeResource NinhoGreenBrush}" />
+              <StackPanel Grid.Column="1" Spacing="3"><TextBlock x:Name="SidebarFocusTitle" Text="Hora de focar" FontSize="12" FontWeight="SemiBold" LineHeight="18.6" LineStackingStrategy="BlockLineHeight" /><TextBlock x:Name="SidebarFocusDetail" Text="Um minuto de cada vez" FontSize="9" LineHeight="13.95" LineStackingStrategy="BlockLineHeight" Foreground="{ThemeResource NinhoMutedBrush}" /></StackPanel>
+              <local:OriginalIcon Grid.Column="2" IconName="play" Size="14" Foreground="{ThemeResource NinhoInkBrush}" />
+            </Grid>
+          </Button>
+          <Button x:Name="SettingsNavigation" Click="OpenSettings" Style="{StaticResource NinhoPlainButtonStyle}" Height="46" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="16,0" CornerRadius="11" AutomationProperties.Name="Ajustes"><StackPanel Orientation="Horizontal" Spacing="13"><local:OriginalIcon IconName="settings-2" Size="20" Foreground="{ThemeResource NinhoMutedBrush}"/><TextBlock Text="Ajustes" FontSize="13" Foreground="{ThemeResource NinhoMutedBrush}" VerticalAlignment="Center" /></StackPanel></Button>
+          <Button Click="OpenProfile" Style="{StaticResource NinhoPlainButtonStyle}" AutomationProperties.Name="Meu perfil" HorizontalContentAlignment="Stretch" BorderThickness="0,1,0,0" BorderBrush="{ThemeResource NinhoLineBrush}" Margin="3,19,3,0" Padding="0,20,0,0">
+            <Grid ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="33"/><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/></Grid.ColumnDefinitions>
+              <Border Width="33" Height="33" CornerRadius="17" Background="#E9E7D9"><TextBlock x:Name="ProfileAvatar" FontSize="12" FontWeight="Bold" Foreground="#65634E" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4"><TextBlock x:Name="ProfileName" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="132"/><StackPanel Orientation="Horizontal" Spacing="3"><local:OriginalIcon IconName="graduation-cap" Size="12" Foreground="{ThemeResource NinhoMutedBrush}"/><TextBlock Text="Um futuro em construção" FontSize="8" Foreground="{ThemeResource NinhoMutedBrush}" VerticalAlignment="Center"/></StackPanel></StackPanel>
+              <Ellipse Grid.Column="2" Width="5" Height="5" Fill="#8FAC79" ToolTipService.ToolTip="Dados locais" />
+            </Grid>
+          </Button>
+        </StackPanel>
+      </NavigationView.PaneFooter>
+      <Grid x:Name="PageFrame" Padding="45,39,45,24" Background="{ThemeResource NinhoCanvasBrush}">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <InfoBar x:Name="Notice" IsOpen="False" IsClosable="True" Visibility="Collapsed" Closed="NoticeClosed" Margin="0,0,0,12" />
+        <ContentControl x:Name="TutorialHost" Grid.Row="1" HorizontalContentAlignment="Stretch" Visibility="Collapsed" Margin="0,0,0,18" />
+        <Button x:Name="PageHelp" Grid.Row="1" Click="OpenPageHelp" Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,0,8" MinWidth="44" MinHeight="44" AutomationProperties.Name="Como usar esta tela" AutomationProperties.AutomationId="navigation.help" Style="{StaticResource NinhoPlainButtonStyle}"><local:OriginalIcon IconName="circle-help" Size="22" Foreground="{ThemeResource NinhoGreenBrush}" /></Button>
+        <ScrollViewer x:Name="PageScroll" Grid.Row="2" Margin="0,0,8,0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Center" SizeChanged="PageSizeChanged">
+          <ContentControl x:Name="PageHost" HorizontalContentAlignment="Stretch" HorizontalAlignment="Center" VerticalContentAlignment="Top" MaxWidth="1300" />
+        </ScrollViewer>
+        <Button x:Name="FocusPill" Grid.Row="3" Visibility="Collapsed" HorizontalAlignment="Stretch" Margin="0,12,0,0" Click="OpenTimer" />
+      </Grid>
+    </NavigationView>
+  </Grid>
+</Window>

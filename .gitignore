@@ -42,6 +42,7 @@ devdocs
 **/bin/
 **/obj/
 artifacts/
+licensing-private/
 .vs/
 *.user
 *.suo

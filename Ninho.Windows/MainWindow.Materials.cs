@@ -314,6 +314,8 @@ public sealed partial class MainWindow
         var dialogWidth = Math.Clamp(Root.ActualWidth - 56, 350, 1080);
         heading.Width = dialogWidth - 58;
         var dialog = new ContentDialog { XamlRoot = Root.XamlRoot, RequestedTheme = Root.ActualTheme, Title = heading, Content = new ScrollViewer { Content = content, MaxHeight = Math.Clamp(Root.ActualHeight - 210, 240, 900), HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled }, CornerRadius = new CornerRadius(20), Background = DashboardSurface, BorderBrush = DashboardLine };
+        ObserveInteractions(dialog);
+        StyleNinhoDialog(dialog, 1080);
         AutomationProperties.SetName(dialog, material.Name);
         dialog.Resources["ContentDialogMaxWidth"] = 1080d;
         dialog.Resources["ContentDialogMinWidth"] = dialogWidth;

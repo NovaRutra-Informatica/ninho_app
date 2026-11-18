@@ -145,7 +145,7 @@ public sealed partial class MainWindow
                     var date = new DateTime(agendaMonth.Year, agendaMonth.Month, number); var label = StudyText(number.ToString(), 12); label.HorizontalAlignment = HorizontalAlignment.Center;
                     var examDot = CalendarDot("#D69379"); var taskDot = CalendarDot("#A4B87D"); var dots = DashboardRow(examDot, taskDot); dots.Spacing = 3; dots.Height = 4; dots.HorizontalAlignment = HorizontalAlignment.Center;
                     var content = StudyStack(5, label, dots); content.IsHitTestVisible = false;
-                    var button = StudyPlain(date.ToString("d 'de' MMMM yyyy", PlanningCulture), content, () => { agendaDay = date; UpdateSelectionAndDots(); FillDay(); return Task.CompletedTask; });
+                    var button = StudyPlain(date.ToString("d 'de' MMMM yyyy", PlanningCulture), content, () => { agendaDay = date; PlayNavigationSound(); UpdateSelectionAndDots(); FillDay(); AnimateLocalChange(dayItems); return Task.CompletedTask; });
                     button.Height = 54; button.CornerRadius = new CornerRadius(10); button.BorderThickness = new Thickness(1); button.HorizontalAlignment = HorizontalAlignment.Stretch; button.HorizontalContentAlignment = HorizontalAlignment.Center;
                     button.PointerEntered += (_, _) => { if (date != agendaDay) button.Background = StudySoft; }; button.PointerExited += (_, _) => { if (date != agendaDay) button.Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent); };
                     AutomationProperties.SetAutomationId(button, "agenda.day." + date.ToString("yyyy-MM-dd")); dayButtons.Add(date, (button, label, examDot, taskDot)); element = button;
@@ -167,10 +167,10 @@ public sealed partial class MainWindow
             PlanningReconcile(examList, desired); examList.Visibility = desired.Count == 0 ? Visibility.Collapsed : Visibility.Visible; emptyExams.Visibility = desired.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
         void RefreshAgenda() { FillCalendar(); FillDay(); FillExams(); }
-        var previous = PlanningIconButton("Mês anterior", "chevron-left", () => { if (agendaMonth.Year > 1900 || agendaMonth.Month > 1) agendaMonth = agendaMonth.AddMonths(-1); FillCalendar(); return Task.CompletedTask; }, 20);
-        var today = StudyPlain("Hoje", StudyText("Hoje", 11, bold: true), () => { agendaDay = DateTime.Today; agendaMonth = new(agendaDay.Year, agendaDay.Month, 1); FillCalendar(); FillDay(); return Task.CompletedTask; });
+        var previous = PlanningIconButton("Mês anterior", "chevron-left", () => { if (agendaMonth.Year > 1900 || agendaMonth.Month > 1) agendaMonth = agendaMonth.AddMonths(-1); PlayNavigationSound(); FillCalendar(); AnimateLocalChange(calendarGrid); return Task.CompletedTask; }, 20);
+        var today = StudyPlain("Hoje", StudyText("Hoje", 11, bold: true), () => { agendaDay = DateTime.Today; agendaMonth = new(agendaDay.Year, agendaDay.Month, 1); PlayNavigationSound(); FillCalendar(); FillDay(); AnimateLocalChange(calendarGrid); AnimateLocalChange(dayItems); return Task.CompletedTask; });
         today.Padding = new Thickness(0, 4, 0, 4); if (today.Content is TextBlock todayLabel) todayLabel.Foreground = DashboardGreen;
-        var next = PlanningIconButton("Próximo mês", "chevron-right", () => { if (agendaMonth.Year < 2200 || agendaMonth.Month < 12) agendaMonth = agendaMonth.AddMonths(1); FillCalendar(); return Task.CompletedTask; }, 20);
+        var next = PlanningIconButton("Próximo mês", "chevron-right", () => { if (agendaMonth.Year < 2200 || agendaMonth.Month < 12) agendaMonth = agendaMonth.AddMonths(1); PlayNavigationSound(); FillCalendar(); AnimateLocalChange(calendarGrid); return Task.CompletedTask; }, 20);
         var calendarHeader = StudyBetween(StudyStack(0, PlanningEyebrow("SEU TEMPO, COM INTENÇÃO"), monthTitle), DashboardRow(previous, today, next), 15); calendarHeader.Margin = new Thickness(0, 0, 0, 25);
         var examLegend = DashboardRow(CalendarDot("#D69379"), StudyText("Prova", 9, muted: true)); examLegend.Spacing = 6; var taskLegend = DashboardRow(CalendarDot("#A4B87D"), StudyText("Tarefa", 9, muted: true)); taskLegend.Spacing = 6;
         var legend = DashboardRow(examLegend, taskLegend); legend.Spacing = 20; legend.HorizontalAlignment = HorizontalAlignment.Center; legend.Margin = new Thickness(0, 20, 0, 0);
@@ -257,6 +257,7 @@ public sealed partial class MainWindow
         else { content.Children.Add(Field("Data", date)); content.Children.Add(Field("Matéria", subject)); }
         var error = StudyText("", 12); error.Foreground = ColorBrush(DashboardDark ? "#E5B0A1" : "#A14434"); error.Visibility = Visibility.Collapsed; content.Children.Add(error);
         var dialog = new ContentDialog { XamlRoot = Root.XamlRoot, RequestedTheme = Root.ActualTheme, Background = DashboardSurface, BorderBrush = DashboardLine, CornerRadius = new CornerRadius(20) };
+        ObserveInteractions(dialog);
         var heading = DashboardText(exam ? existingExam == null ? "Uma prova no horizonte" : "Editar prova" : existingTask == null ? "Um passo de cada vez" : "Editar tarefa", 24, display: true); heading.LineHeight = 37.2; var headingCopy = StudyStack(0, heading);
         if (exam) { var subtitle = StudyText("Tenha tempo para se preparar, sem depender da memória.", 11, muted: true); subtitle.Margin = new Thickness(0, 7, 0, 0); headingCopy.Children.Add(subtitle); }
         var close = new Button { Style = (Style)Application.Current.Resources["NinhoPlainButtonStyle"], Content = OriginalIcon.Create("x", 18, DashboardMuted), Width = 33, Height = 33, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -5, -5, 0) }; AutomationProperties.SetName(close, "Fechar"); close.Click += (_, _) => dialog.Hide(); dialog.Title = StudyBetween(headingCopy, close, 15);
@@ -288,6 +289,7 @@ public sealed partial class MainWindow
         dialog.Content = new ScrollViewer { Content = content, MaxHeight = Math.Max(230, Root.ActualHeight - 245), HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         dialog.Resources["ContentDialogMinWidth"] = Math.Min(550d, Math.Max(320d, Root.ActualWidth - 56)); dialog.Resources["ContentDialogMaxWidth"] = 550d; dialog.Resources["ContentDialogMaxHeight"] = Math.Max(350, Root.ActualHeight - 56);
         dialog.Resources["ContentDialogPadding"] = new Thickness(28); dialog.Resources["ContentDialogTitleMargin"] = new Thickness(0, 0, 0, 25); dialog.Resources["ContentDialogTopOverlay"] = DashboardSurface;
+        StyleNinhoDialog(dialog);
         await dialog.ShowAsync();
     }
 }

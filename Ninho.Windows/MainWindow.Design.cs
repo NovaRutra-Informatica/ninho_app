@@ -185,7 +185,11 @@ public sealed partial class MainWindow
         var stats = new AdaptiveColumns { MinimumColumnWidth = 190, Gap = 15, Margin = new Thickness(0, 21, 0, 0) };
         stats.Children.Add(DashboardStat("timer", DashboardDark ? "#354831" : "#EDF3E8", DashboardDark ? "#BDD6AA" : "#779666", "Seu tempo hoje", $"{Math.Round(minutes)}", $" / {State.Settings.DailyMinutes} min", "", () => Navigate("timer"), minutes / Math.Max(1, State.Settings.DailyMinutes)));
         stats.Children.Add(DashboardStat("brain", DashboardDark ? "#423F53" : "#F0EEF8", DashboardDark ? "#C4B5E0" : "#9986BD", "Para revisar", $"{due}", " conhecimentos", "Um reencontro com o que aprendeu", () => Navigate("reviews")));
-        stats.Children.Add(DashboardStat("flame", DashboardDark ? "#533F32" : "#FBEEE3", DashboardDark ? "#DEAF88" : "#C88E67", "Seu ritmo", $"{streak}", streak == 1 ? " dia seguido" : " dias seguidos", "Constância se constrói aos poucos", () => Navigate("progress")));
+        var studiedToday = studyDays.Contains(today);
+        var streakCard = DashboardStat("flame", studiedToday ? DashboardDark ? "#533F32" : "#FBEEE3" : DashboardDark ? "#343D38" : "#EEF0ED", studiedToday ? DashboardDark ? "#DEAF88" : "#C88E67" : "#87928B", "Seu ritmo", $"{streak}", streak == 1 ? " dia seguido" : " dias seguidos", studiedToday ? "Estudou hoje" : "Ainda sem estudo hoje", () => _ = OpenStreakCalendar());
+        AutomationProperties.SetAutomationId(streakCard, "navigation.streak");
+        AutomationProperties.SetHelpText(streakCard, "Abre o calendário dos dias em que você estudou.");
+        stats.Children.Add(streakCard);
 
         var left = Column(SectionHeading("Seu próximo passo", "Ver estudos", () => { Navigate("studies"); return Task.CompletedTask; })); left.Spacing = 0;
         if (next != null)

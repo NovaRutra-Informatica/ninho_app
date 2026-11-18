@@ -18,9 +18,31 @@ Requisitos de desenvolvimento: Windows 11 x64, SDK .NET 10.0.401 e acesso ao NuG
 ./build.ps1 -Action Publish
 ```
 
-`Publish` gera `artifacts/windows-x64/Ninho.exe` com o runtime .NET e Windows App SDK. Não abre nem instala o aplicativo. A pasta inteira é necessária para distribuição; não mova só o executável. Para um pacote menor em máquinas que já têm o runtime .NET 10 x64, use `-FrameworkDependent`; a saída vai para `artifacts/windows-x64-framework-dependent`. O artefato não está assinado.
+Esses comandos usam a edição **Preview** para desenvolvimento, identificada na barra superior e sem exigir compra. `Publish` gera `artifacts/windows-x64/Ninho.exe` com o runtime .NET e Windows App SDK; não abre nem instala o aplicativo. Essa prévia não deve ser vendida ou publicada como edição comercial. A pasta inteira é necessária; não mova só o executável. Para uma prévia menor em máquinas que já têm o runtime .NET 10 x64, use `-FrameworkDependent`; a saída vai para `artifacts/windows-x64-framework-dependent`. A prévia não está assinada. `Test` executa os testes de estudos e de licenciamento.
+
+## Compra única e licença para Windows
+
+A edição comercial exige uma licença perpétua: o usuário informa seu código uma vez, recebe um comprovante assinado e depois usa o aplicativo offline, sem mensalidade, vencimento ou consulta periódica obrigatória. A ativação ocorre antes de abrir a coleção. Uma falha não apaga os estudos. O Windows protege a identidade da instalação com chave CNG não exportável (TPM quando disponível); o comprovante local usa DPAPI e a assinatura do emissor é conferida a cada abertura. Backups de estudos não carregam a licença.
+
+O cliente só contém chaves públicas. O emissor/serviço de ativação fica em `Ninho.LicenseServer`, separado da distribuição do aplicativo, e limita as instalações por código com operações atômicas. A ativação envia código de compra e chave pública/prova da instalação, sem nome, materiais ou histórico de estudos. Para um computador sem internet, **Ativação assistida** exporta uma solicitação ao suporte e aceita o comprovante assinado de volta. Esse arquivo contém o código de compra e não deve ser publicado.
+
+Ainda é necessário configurar as chaves públicas do emissor, a infraestrutura de venda/entrega de códigos e um certificado comercial de assinatura. Para ativação online, configure também o endereço HTTPS real; `activationEndpoint` vazio com chaves válidas seleciona somente ativação assistida. Nenhum serviço foi implantado ou pagamento configurado. A configuração pública sem chaves é intencional: publicação comercial deve falhar enquanto esses requisitos estiverem ausentes. O uso comum do Ninho continua offline; somente a compra/ativação envolve os serviços de distribuição.
+
+```powershell
+./build.ps1 -Action Build -Distribution Production
+./build.ps1 -Action Publish -Distribution Production `
+  -LicensingPublicConfiguration 'C:\Distribuicao\Ninho\production.public.json' `
+  -SigningCertificateThumbprint 'THUMBPRINT_DO_CERTIFICADO' `
+  -TimestampServer 'https://SERVIDOR-DE-TIMESTAMP-DO-CERTIFICADO'
+```
+
+Os valores acima precisam ser substituídos pelos reais. A saída comercial é `artifacts/windows-x64-commercial`; seu executável e DLLs Ninho recebem assinatura Authenticode com timestamp. Publicar diretamente pelo projeto exige Release e configuração pública válida, mas não substitui a assinatura e a conferência do pacote comercial pelo script. Preview/Debug são exceções de compilação, sem variável de ambiente ou opção do usuário para desbloquear a edição comercial.
+
+Consulte [licenciamento do cliente](DevDocs/LICENSING-WINDOWS.md) e [operação do emissor](DevDocs/LICENSING-SERVER.md). Proteção local dificulta adulteração e compartilhamento; não torna um executável impossível de modificar. Licenças já ativadas e permanentemente offline não recebem revogação imediata por reembolso ou transferência. Não há liberação automática de assentos que permita multiplicar ativações offline.
 
 ## Instalar para comparar com o Ninho anterior
+
+Neste computador, por preferência do usuário, cada rodada de alterações da versão Windows deve terminar com a validação, publicação e atualização da instalação local. Depois de instalar, conferir a abertura pelo atalho atualizado. Preservar os dados de estudo e encerrar normalmente uma instância antiga antes de abrir a nova. Apenas compilar não conclui a entrega.
 
 Depois de publicar, execute `./install-preview.ps1`. A instalação por usuário fica em `%LOCALAPPDATA%\Programs\Ninho-Native-Preview`, com o nome **Ninho Nativo (Teste)** na área de trabalho, menu Iniciar e Aplicativos instalados. O script não exige administrador nem abre a aplicação. A instalação anterior e seus atalhos são preservados. Cada atualização recebe uma subpasta própria; as cópias são conferidas por SHA-256.
 
@@ -94,6 +116,8 @@ O contexto de linguagem contém o perfil completo e um resumo limitado dos regis
 
 ## Validação e limites
 
-Consulte [VALIDATION.md](DevDocs/VALIDATION.md) para os comandos e a cobertura: **162 testes Core aprovados**. Nesta retomada, o onboarding foi exercitado no aplicativo com dados isolados: dez perguntas sem sidebar, controles no estilo Ninho, navegação, dia de sexta-feira, bloco de 15 para 20 minutos salvo e sincronizado com Ajustes/Foco, retomada na pergunta 8 após reabrir e conclusão com perfil e plano analítico, sem LLM. Rodadas anteriores também compararam sidebar, Hoje, aulas, revisões, agenda e ajustes com o original. A conferência final de temas, temporizador e instalação será registrada separadamente; todas as escalas DPI e estados de cada tela ainda não foram certificados como visualmente idênticos.
+O [relatório de desempenho e modais](DevDocs/PERFORMANCE-2026-09-23.md) registra as cargas com 71, 1.000 e 5.000 cartões, as medições antes/depois, 184 testes Core e os limites de validação visual. `./measure-performance.ps1`, após compilar, abre uma janela com dados sintéticos separados e produz um relatório de construção/layout, alocações e quantidade de controles; use quando estiver livre para executar esse teste de interface. Os testes Core podem rodar sem controlar a tela.
+
+Consulte [VALIDATION.md](DevDocs/VALIDATION.md) para o histórico e a cobertura: a rodada atual passou **184 testes Core**. Em rodadas anteriores, o onboarding foi exercitado no aplicativo com dados isolados: dez perguntas sem sidebar, controles no estilo Ninho, navegação, dia de sexta-feira, bloco de 15 para 20 minutos salvo e sincronizado com Ajustes/Foco, retomada na pergunta 8 após reabrir e conclusão com perfil e plano analítico, sem LLM. Também foram comparados sidebar, Hoje, aulas, revisões, agenda e ajustes com o original. A atualização atual foi instalada sem abrir o aplicativo, respeitando a reserva do controle da tela para outra tarefa. A inspeção visual final dos modais, todas as escalas DPI e estados de cada tela ainda não foram certificados como visualmente idênticos.
 
 O código Electron/React permanece na pasta de referência no WebstormProjects. Os comandos npm dessa pasta compilam a versão anterior; o Rider usa os scripts .NET desta solução.

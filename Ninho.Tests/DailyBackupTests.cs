@@ -122,5 +122,138 @@ public sealed class DailyBackupTests : IDisposable
         await Assert.ThrowsAnyAsync<IOException>(() => new DailyBackups(blocked).SaveAsync(Example(), null, Now));
         Assert.Equal("existing file", await File.ReadAllTextAsync(blocked));
     }
+    [Fact] public async Task AllInvalidSnapshotsBlockFreshRecoveryAndProtectedWritesAcrossRestart()
+    {
+        Directory.CreateDirectory(Backups);
+        var corrupt = Path.Combine(Backups, "Ninho-daily-2026-09-23.zip"); await File.WriteAllTextAsync(corrupt, "prior damaged snapshot");
+        var marker = Path.Combine(root, "recovery-required.json"); var data = Path.Combine(root, "new-data");
+        await Assert.ThrowsAsync<InvalidDataException>(() => new DailyBackups(Backups, recoveryRequirement: marker).RestoreIfMissingAsync(data));
+        Assert.True(File.Exists(marker)); Assert.False(File.Exists(Path.Combine(data, "state.json")));
+        await Assert.ThrowsAsync<InvalidDataException>(() => new DailyBackups(Backups, recoveryRequirement: marker).SaveAsync(Example(), null, Now));
+        Assert.Equal("prior damaged snapshot", await File.ReadAllTextAsync(corrupt));
+    }
+    [Fact] public async Task IncompleteDiscoveryMustNotSeedOrOverwriteAndCompletedRetryRestores()
+    {
+        var original = await new DailyBackups(Backups).SaveAsync(Example(), null, Now);
+        var bytes = await File.ReadAllBytesAsync(original); var marker = Path.Combine(root, "recovery-required.json"); var data = Path.Combine(root, "new-data");
+        var complete = false;
+        var writer = new DailyBackups(Backups, recoveryRequirement: marker, discover: () => Task.FromResult(new DailyBackupListing(complete ? [original] : [], complete)));
+        await Assert.ThrowsAsync<DailyBackupPendingException>(() => writer.RestoreIfMissingAsync(data));
+        await Assert.ThrowsAsync<DailyBackupPendingException>(() => writer.SaveAsync(Example(), null, Now));
+        Assert.True(File.Exists(marker)); Assert.False(File.Exists(Path.Combine(data, "state.json"))); Assert.Equal(bytes, await File.ReadAllBytesAsync(original));
+        complete = true;
+        Assert.NotNull(await writer.RestoreIfMissingAsync(data)); Assert.False(File.Exists(marker));
+        Assert.Equal("Pessoa local", (await StudyStore.ReadAsync(Path.Combine(data, "state.json"))).Profile!.Name);
+    }
+    [Fact] public async Task ExistingPriorSnapshotBlocksUploadUntilSuccessfulRecovery()
+    {
+        await new DailyBackups(Backups).SaveAsync(Example(), null, Now);
+        var marker = Path.Combine(root, "recovery-required.json");
+        var writer = new DailyBackups(Backups, recoveryRequirement: marker); await writer.RequireInitialRecoveryAsync();
+        await Assert.ThrowsAsync<DailyBackupRecoveryRequiredException>(() => writer.SaveAsync(new StudyState(), null, Now));
+        Assert.True(File.Exists(marker));
+        await writer.RestoreIfMissingAsync(Path.Combine(root, "restored"));
+        Assert.False(File.Exists(marker)); await writer.SaveAsync(Example(), null, Now);
+    }
+    [Fact] public async Task MissingSelectedFolderIsUnavailableRatherThanEmpty()
+    {
+        var marker = Path.Combine(root, "recovery-required.json");
+        var writer = new DailyBackups(Backups, requireExistingDirectory: true, recoveryRequirement: marker);
+        await Assert.ThrowsAsync<DailyBackupPendingException>(() => writer.RestoreIfMissingAsync(Path.Combine(root, "new-data")));
+        await Assert.ThrowsAsync<DailyBackupPendingException>(() => writer.SaveAsync(Example(), null, Now));
+        Assert.True(File.Exists(marker)); Assert.False(Directory.Exists(Backups));
+    }
+    [Theory]
+    [InlineData("state.previous.json")]
+    [InlineData("materials/retained.pdf")]
+    [InlineData("coach-usage.json")]
+    public async Task MissingPrimaryStateWithPriorArtifactsIsNotPristine(string relative)
+    {
+        await new DailyBackups(Backups).SaveAsync(Example(), null, Now);
+        var data = Path.Combine(root, "data"); var prior = Path.Combine(data, relative); Directory.CreateDirectory(Path.GetDirectoryName(prior)!); await File.WriteAllTextAsync(prior, "preserve");
+        Assert.False(StudyStore.IsPristineDirectory(data));
+        await Assert.ThrowsAsync<InvalidDataException>(() => new DailyBackups(Backups).RestoreIfMissingAsync(data));
+        var store = new StudyStore(data);
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.LoadAsync("missing seed"));
+        Assert.Equal("preserve", await File.ReadAllTextAsync(prior)); Assert.False(File.Exists(Path.Combine(data, "state.json")));
+    }
+    [Fact] public async Task DiscoveryCancellationPreservesRecoveryRequirement()
+    {
+        var marker = Path.Combine(root, "recovery-required.json");
+        var writer = new DailyBackups(Backups, recoveryRequirement: marker, discover: () => Task.FromCanceled<DailyBackupListing>(new CancellationToken(true)));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => writer.RestoreIfMissingAsync(Path.Combine(root, "new-data")));
+        Assert.True(File.Exists(marker));
+    }
+    [Fact] public async Task FailedStatePublicationDoesNotLeaveAnAnalysisFileToBlockRetry()
+    {
+        var archive = await new DailyBackups(Backups).SaveAsync(Example(), new CoachJournal(), Now);
+        var data = Path.Combine(root, "new-data"); var blocker = Path.Combine(data, "state.json");
+        var writer = new DailyBackups(Backups, discover: () => { Directory.CreateDirectory(blocker); return Task.FromResult(new DailyBackupListing([archive], true)); });
+        await Assert.ThrowsAnyAsync<IOException>(() => writer.RestoreIfMissingAsync(data));
+        Assert.False(File.Exists(Path.Combine(data, "coach-usage.json")));
+        Directory.Delete(blocker);
+        Assert.NotNull(await new DailyBackups(Backups).RestoreIfMissingAsync(data));
+    }
+    [Fact] public async Task OptionalAnalysisFailureReportsWarningWithoutLosingRecoveredStudies()
+    {
+        var archive = await new DailyBackups(Backups).SaveAsync(Example(), new CoachJournal(), Now);
+        var data = Path.Combine(root, "new-data");
+        var writer = new DailyBackups(Backups, discover: () => { Directory.CreateDirectory(Path.Combine(data, "coach-usage.json")); return Task.FromResult(new DailyBackupListing([archive], true)); });
+        var snapshot = await writer.RestoreIfMissingAsync(data);
+        Assert.NotNull(snapshot); Assert.NotEmpty(snapshot.RecoveryWarning);
+        Assert.Equal("Pessoa local", (await StudyStore.ReadAsync(Path.Combine(data, "state.json"))).Profile!.Name);
+    }
+    [Fact] public async Task ExternalFolderUnavailableStillWritesCurrentLocalBackup()
+    {
+        var external = new DailyBackups(Path.Combine(root, "offline-external"), requireExistingDirectory: true);
+        var coordinator = new DailyBackupCoordinator(new DailyBackups(Backups), external);
+        var result = await coordinator.SaveAsync(Example(), null, Now);
+        Assert.NotEmpty(result.ExternalError); Assert.Null(result.ExternalPath);
+        Assert.Equal("Pessoa local", (await DailyBackups.ReadAsync(result.LocalPath)).State.Profile!.Name);
+        Assert.False(Directory.Exists(external.DirectoryPath));
+    }
+    [Fact] public async Task LocalRestoreDoesNotClearProtectionOfDifferentExternalSnapshot()
+    {
+        var local = new DailyBackups(Backups); await local.SaveAsync(Example(), null, Now);
+        var externalDirectory = Path.Combine(root, "external"); var marker = Path.Combine(root, "external-recovery-required.json");
+        var remote = Example(); remote.Profile!.Name = "Perfil anterior externo";
+        var external = new DailyBackups(externalDirectory, recoveryRequirement: marker); var prior = await external.SaveAsync(remote, null, Now); var bytes = await File.ReadAllBytesAsync(prior);
+        var coordinator = new DailyBackupCoordinator(local, external);
+        var snapshot = await coordinator.RestoreIfMissingAsync(Path.Combine(root, "new-data"));
+        Assert.NotNull(snapshot); Assert.Equal("Pessoa local", snapshot.State.Profile!.Name); Assert.True(File.Exists(marker));
+        var result = await coordinator.SaveAsync(Example(), null, Now.AddMinutes(1));
+        Assert.NotEmpty(result.ExternalError); Assert.Null(result.ExternalPath); Assert.Equal(bytes, await File.ReadAllBytesAsync(prior));
+        Assert.NotNull(await DailyBackups.ReadAsync(result.LocalPath));
+    }
+    [Fact] public async Task CompleteEmptyLocalDiscoveryThenExternalRestoreRecoversAndClearsMarker()
+    {
+        var externalDirectory = Path.Combine(root, "external"); var marker = Path.Combine(root, "external-recovery-required.json");
+        var external = new DailyBackups(externalDirectory, recoveryRequirement: marker); await external.SaveAsync(Example(), null, Now);
+        var coordinator = new DailyBackupCoordinator(new DailyBackups(Backups), external);
+        var snapshot = await coordinator.RestoreIfMissingAsync(Path.Combine(root, "new-data"));
+        Assert.NotNull(snapshot); Assert.Equal("Pessoa local", snapshot.State.Profile!.Name); Assert.False(File.Exists(marker));
+        var result = await coordinator.SaveAsync(snapshot.State, null, Now.AddMinutes(1));
+        Assert.NotNull(result.ExternalPath); Assert.Empty(result.ExternalError); Assert.True(File.Exists(result.LocalPath));
+    }
+    [Fact] public async Task FailedLocalWriteDoesNotAdvanceExternalSnapshot()
+    {
+        Directory.CreateDirectory(root); var blockedLocal = Path.Combine(root, "local-file"); await File.WriteAllTextAsync(blockedLocal, "preserve");
+        var external = new DailyBackups(Backups); var prior = await external.SaveAsync(Example(), null, Now); var bytes = await File.ReadAllBytesAsync(prior);
+        var updated = Example(); updated.Profile!.Name = "New";
+        await Assert.ThrowsAnyAsync<IOException>(() => new DailyBackupCoordinator(new DailyBackups(blockedLocal), external).SaveAsync(updated, null, Now));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(prior));
+    }
+    [Fact] public async Task SelectingPreviouslyRestoredFolderCanResumeOnlyMatchingCollection()
+    {
+        var state = Example(); state.Focus.RunningSince = Now.AddMinutes(-2);
+        var writer = new DailyBackups(Backups); var archive = await writer.SaveAsync(state, null, Now);
+        var previous = await DailyBackups.ReadAsync(archive);
+        await writer.RestoreIfMissingAsync(Path.Combine(root, "new-data"));
+        var restored = await StudyStore.ReadAsync(Path.Combine(root, "new-data", "state.json"));
+        Assert.True(DailyBackups.MatchesRestoredState(previous, restored));
+        Assert.NotNull(previous.State.Focus.RunningSince);
+        restored.Profile!.Name = "Outra coleção";
+        Assert.False(DailyBackups.MatchesRestoredState(previous, restored));
+    }
     public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }

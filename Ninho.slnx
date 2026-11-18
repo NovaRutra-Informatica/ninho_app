@@ -5,4 +5,9 @@
   <Project Path="Ninho.Core/Ninho.Core.csproj" />
   <Project Path="Ninho.Windows/Ninho.Windows.csproj" />
   <Project Path="Ninho.Tests/Ninho.Tests.csproj" />
+  <Project Path="Ninho.Licensing/Ninho.Licensing.csproj" />
+  <Project Path="Ninho.LicenseServer/Ninho.LicenseServer.csproj" />
+  <Project Path="Ninho.Licensing.Tests/Ninho.Licensing.Tests.csproj" />
+  <Project Path="Ninho.Licensing.Windows/Ninho.Licensing.Windows.csproj" />
+  <Project Path="Ninho.Licensing.Windows.Tests/Ninho.Licensing.Windows.Tests.csproj" />
 </Solution>

@@ -43,9 +43,11 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "icon.ico"));
         var overridePath = Environment.GetEnvironmentVariable("NINHO_DATA_DIR");
         store = new StudyStore(overridePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Ninho", "native"));
-        Root.Loaded += async (_, _) =>
+        var starting = false;
+        async Task StartLibrary()
         {
-            if (ready) return;
+            if (ready || starting || licenseWindowClosed) return;
+            starting = true;
             var scale = Root.XamlRoot.RasterizationScale;
             var area = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary).WorkArea;
             AppWindow.Resize(new SizeInt32(Math.Min(area.Width, (int)(1180 * scale)), Math.Min(area.Height, (int)(820 * scale))));
@@ -53,36 +55,50 @@ public sealed partial class MainWindow : Window
             {
                 Navigation.IsEnabled = false;
                 PageHost.Content = new ProgressRing { IsActive = true, Width = 36, Height = 36, Margin = new Thickness(40) };
+                if (!await EnsurePurchase(StartLibrary) || licenseWindowClosed) return;
                 await InitializeDailyBackups(overridePath);
+                if (licenseWindowClosed) return;
                 await store.LoadAsync(Path.Combine(AppContext.BaseDirectory, "Assets", "seed.json"), overridePath == null ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Ninho") : null);
+                if (licenseWindowClosed) return;
                 ready = true;
                 ApplyTheme();
                 Navigation.SelectedItem = Navigation.MenuItems[0];
                 await ResumeWelcome();
+                if (licenseWindowClosed) return;
                 await InitializeCoach();
+                if (licenseWindowClosed) return;
                 await SaveDailyBackup();
+                if (licenseWindowClosed) return;
                 Navigation.IsEnabled = true;
+                Notice.IsOpen = false; Notice.Visibility = Visibility.Collapsed;
                 Render();
                 UpdateClock();
                 if (State.Focus.RunningSince != null) clock.Start();
                 if (store.MigrationMessage is { } message) ShowNotice(message, InfoBarSeverity.Success);
+                await RunPerformanceDiagnostics();
             }
             catch (Exception error)
             {
-                PageHost.Content = Column(Heading("Seus dados precisam de atenção"), Body("O arquivo não foi substituído. Confira o backup anterior antes de tentar novamente."), Body(error.Message), Body(store.DirectoryPath));
+                if (licenseWindowClosed) return;
+                ready = false;
+                PageHost.Content = Column(Heading("Seus dados precisam de atenção"), Body("O arquivo não foi substituído. Confira a pasta de backup e aguarde a sincronização antes de tentar novamente."), Body(error.Message), Body(store.DirectoryPath), ActionButton("Tentar novamente", StartLibrary));
+                Navigation.IsEnabled = true;
                 ShowNotice("Não foi possível abrir os estudos. Os dados foram preservados.", InfoBarSeverity.Error);
             }
-        };
+            finally { starting = false; }
+        }
+        Root.Loaded += async (_, _) => await StartLibrary();
         clock.Tick += (_, _) => UpdateClock();
         Root.SizeChanged += (_, _) =>
         {
             var narrow = Root.ActualWidth < 900;
             Navigation.PaneDisplayMode = narrow ? NavigationViewPaneDisplayMode.LeftMinimal : NavigationViewPaneDisplayMode.Left;
-            Navigation.IsPaneToggleButtonVisible = narrow && route != "welcome";
+            Navigation.IsPaneToggleButtonVisible = ready && narrow && route != "welcome";
+            if (!ready) Navigation.IsPaneVisible = false;
             PageFrame.Padding = narrow ? new Thickness(24, 30, 24, 24) : new Thickness(45, 39, 45, 24);
         };
         Activated += (_, args) => CoachActivation(args.WindowActivationState != WindowActivationState.Deactivated);
-        Closed += (_, _) => { dailyBackupDelay.Stop(); dailyBackupClock.Stop(); StopPageMotion(); coachAnalysis?.Cancel(); usageClock.Stop(); generation?.Cancel(); profileGeneration?.Cancel(); modelDiscoveryLifetime.Cancel(); clock.Stop(); ninhoSound?.Dispose(); };
+        Closed += (_, _) => { ClosePurchase(); dailyBackupDelay.Stop(); dailyBackupClock.Stop(); StopPageMotion(); coachAnalysis?.Cancel(); usageClock.Stop(); generation?.Cancel(); profileGeneration?.Cancel(); modelDiscoveryLifetime.Cancel(); clock.Stop(); ninhoSound?.Dispose(); navigationSound?.Dispose(); navigationAudio?.Dispose(); };
         InitializeSidebarMotion();
         AppWindow.Closing += async (_, args) =>
         {
@@ -98,16 +114,17 @@ public sealed partial class MainWindow : Window
                 await coachWrites; await SaveDailyBackup(); closingAfterSave = true; Close();
             }
             catch { ShowNotice("Uma alteração ainda não foi salva. Confira os campos antes de fechar.", InfoBarSeverity.Error); }
-            finally { if (!closingAfterSave) Navigation.IsEnabled = true; }
+            finally { if (!closingAfterSave && !licenseWindowClosed) Navigation.IsEnabled = true; }
         };
     }
 
     private void NavigationInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
+        if (!ready || tutorialVisible) return;
         if (ready && route == "welcome") return;
         var previousRoute = route;
         route = args.IsSettingsInvoked ? "settings" : args.InvokedItemContainer?.Tag?.ToString() ?? "today";
-        if (previousRoute != route) ObserveUsage(true);
+        if (previousRoute != route) { ObserveUsage(true); PlayNavigationSound(); }
         if (route == "studies") { studyProgramId = studySubjectId = studyQuery = ""; studyStatus = "all"; studyTab = "lessons"; }
         if (ready) Render();
         PageScroll.ChangeView(null, 0, null, true);
@@ -118,9 +135,10 @@ public sealed partial class MainWindow : Window
     private void OpenProfile(object sender, RoutedEventArgs e) => Navigate("profile");
     private void Navigate(string page)
     {
+        if (!ready || tutorialVisible) return;
         if (route == "welcome" && page != "welcome") return;
         var changed = route != page; route = page;
-        if (changed) ObserveUsage(true);
+        if (changed) { ObserveUsage(true); PlayNavigationSound(); }
         Navigation.SelectedItem = Navigation.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(x => x.Tag?.ToString() == page);
         if (Navigation.PaneDisplayMode == NavigationViewPaneDisplayMode.LeftMinimal) Navigation.IsPaneOpen = false;
         Render();
@@ -128,6 +146,7 @@ public sealed partial class MainWindow : Window
     }
     private void Render(bool force = false)
     {
+        if (licenseWindowClosed) return;
         if (!force && renderedRoute == route && refreshPage != null) { refreshPage(); UpdateClock(); return; }
         Navigation.IsPaneVisible = route != "welcome";
         Navigation.IsPaneToggleButtonVisible = route != "welcome" && Root.ActualWidth < 900;
@@ -149,7 +168,7 @@ public sealed partial class MainWindow : Window
             "settings" => SettingsPage(), "agenda" => AgendaPage(), "profile" => ProfilePage(), "welcome" => WelcomePage(), _ => TodayPage()
         };
         PageHost.Content = content;
-        if (navigating) AnimatePageChange(content);
+        if (navigating) { AnimatePageChange(content); if (ready && route != "welcome") PlayNavigationSound(); }
         ShowPageTutorial();
         UpdateClock();
     }
@@ -199,7 +218,7 @@ public sealed partial class MainWindow : Window
         SettingsNavigation.BorderThickness = new Thickness(3, 0, 0, 0);
     }
     private void ShowNotice(string message, InfoBarSeverity severity = InfoBarSeverity.Informational)
-    { Notice.Message = message; Notice.Severity = severity; Notice.Visibility = Visibility.Visible; Notice.IsOpen = true; }
+    { if (licenseWindowClosed) return; Notice.Message = message; Notice.Severity = severity; Notice.Visibility = Visibility.Visible; Notice.IsOpen = true; }
     private void NoticeClosed(InfoBar sender, InfoBarClosedEventArgs args) => sender.Visibility = Visibility.Collapsed;
     private async Task Run(Func<Task> action)
     {
@@ -209,10 +228,11 @@ public sealed partial class MainWindow : Window
         catch (Exception error) { ShowNotice(error.Message, InfoBarSeverity.Error); }
         finally { busy = false; }
     }
-    private async Task Save(Action<StudyState> change, bool redraw = true)
+    private async Task Save(Action<StudyState> change, bool redraw = true, bool immediateBackup = false)
     {
+        if (!licenseAccepted) throw new InvalidOperationException("Ative sua compra para abrir os estudos.");
         await store.ChangeAsync(change);
-        QueueDailyBackup();
+        if (immediateBackup) await SaveDailyBackup(); else QueueDailyBackup();
         QueueCoachRefresh();
         if (redraw) Render();
     }
@@ -288,7 +308,7 @@ public sealed partial class MainWindow : Window
             foreach (var item in drafts)
                 if (s.Sessions.FirstOrDefault(x => x.Id == item.Key) is { } session) session.Feedback = item.Value.Trim();
             StudyEngine.FinishFocus(s, DateTimeOffset.Now, feedbackDraft);
-        }, false);
+        }, false, immediateBackup: true);
         foreach (var item in drafts) if (sessionFeedbackDrafts.GetValueOrDefault(item.Key) == item.Value) sessionFeedbackDrafts.Remove(item.Key);
         feedbackDraft = "";
     }
@@ -412,25 +432,58 @@ public sealed partial class MainWindow : Window
 
     private Task AddAgendaItem(bool exam) => EditAgenda(exam);
 
-    private async Task<ContentDialogResult> FormDialog(string title, UIElement content, Func<Task> save, string primary = "Salvar", string secondary = "", double maxWidth = 620)
+    private async Task<ContentDialogResult> FormDialog(string title, UIElement content, Func<Task> save, string primary = "Salvar", string secondary = "", double maxWidth = 550)
     {
-        var error = new InfoBar { IsOpen = false, Severity = InfoBarSeverity.Error, IsClosable = true };
-        var dialog = new ContentDialog { XamlRoot = Root.XamlRoot, RequestedTheme = Root.ActualTheme, Title = title, Content = Column(error, new ScrollViewer { Content = content, MaxHeight = 520 }), PrimaryButtonText = primary, CloseButtonText = "Cancelar", SecondaryButtonText = secondary, DefaultButton = ContentDialogButton.Primary };
-        dialog.Resources["ContentDialogMaxWidth"] = maxWidth;
-        async void Submit(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+        var error = StudyText("", 12); error.Foreground = ColorBrush(DashboardDark ? "#E5B0A1" : "#A14434"); error.Visibility = Visibility.Collapsed;
+        AutomationProperties.SetLiveSetting(error, Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Assertive);
+        var result = ContentDialogResult.None;
+        var saving = false;
+        var dialog = new ContentDialog();
+        void CloseForm() { if (!saving) dialog.Hide(); }
+        dialog.Title = DialogHeading(title, CloseForm);
+        var cancel = DialogAction("Cancelar"); cancel.Click += (_, _) => CloseForm();
+        var submit = DialogAction(primary, true);
+        var alternative = DialogAction(secondary); alternative.Visibility = secondary.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        var fields = new ScrollViewer { Content = content, MaxHeight = Math.Max(100, Root.ActualHeight - 300), HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        dialog.Content = Column(fields, error, DialogActions(cancel, alternative, submit));
+        StyleNinhoDialog(dialog, maxWidth);
+        ObserveInteractions(dialog);
+        async Task Submit(ContentDialogResult action)
         {
-            var deferral = args.GetDeferral();
-            args.Cancel = true;
-            sender.IsPrimaryButtonEnabled = sender.IsSecondaryButtonEnabled = false;
-            error.IsOpen = false;
-            try { await save(); args.Cancel = false; }
-            catch (Exception failure) { error.Message = failure.Message; error.IsOpen = true; }
-            finally { sender.IsPrimaryButtonEnabled = sender.IsSecondaryButtonEnabled = true; deferral.Complete(); }
+            if (saving) return;
+            saving = true; submit.IsEnabled = alternative.IsEnabled = cancel.IsEnabled = false;
+            error.Visibility = Visibility.Collapsed; fields.MaxHeight = Math.Max(100, Root.ActualHeight - 300);
+            try { await save(); result = action; saving = false; dialog.Hide(); }
+            catch (Exception failure)
+            {
+                error.Text = failure.Message; error.Visibility = Visibility.Visible;
+                fields.MaxHeight = Math.Max(100, Root.ActualHeight - 360);
+                Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(error)?.RaiseAutomationEvent(Microsoft.UI.Xaml.Automation.Peers.AutomationEvents.LiveRegionChanged);
+            }
+            finally { saving = false; submit.IsEnabled = alternative.IsEnabled = cancel.IsEnabled = true; }
         }
-        dialog.PrimaryButtonClick += Submit; dialog.SecondaryButtonClick += Submit;
-        return await dialog.ShowAsync();
+        submit.Click += async (_, _) => await Submit(ContentDialogResult.Primary);
+        alternative.Click += async (_, _) => await Submit(ContentDialogResult.Secondary);
+        dialog.KeyDown += async (_, args) =>
+        {
+            if (args.Handled || args.Key != VirtualKey.Enter || saving) return;
+            var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(dialog.XamlRoot) as DependencyObject;
+            for (var ancestor = focused; ancestor != null && ancestor != dialog; ancestor = VisualTreeHelper.GetParent(ancestor))
+                if (ancestor is Button or ComboBox or ComboBoxItem or CalendarDatePicker or CalendarView or DatePicker or NumberBox or RichEditBox || ancestor is TextBox { AcceptsReturn: true }) return;
+            args.Handled = true;
+            await Submit(ContentDialogResult.Primary);
+        };
+        dialog.Closing += (_, args) => args.Cancel = saving;
+        await dialog.ShowAsync();
+        return result;
     }
-    private async Task<bool> Confirm(string title, string description) => await new ContentDialog { XamlRoot = Root.XamlRoot, RequestedTheme = Root.ActualTheme, Title = title, Content = Text(description), PrimaryButtonText = "Confirmar", CloseButtonText = "Cancelar", DefaultButton = ContentDialogButton.Close }.ShowAsync() == ContentDialogResult.Primary;
+    private async Task<bool> Confirm(string title, string description)
+    {
+        var dialog = new ContentDialog { XamlRoot = Root.XamlRoot, RequestedTheme = Root.ActualTheme, Title = title, Content = Text(description), PrimaryButtonText = "Confirmar", CloseButtonText = "Cancelar", DefaultButton = ContentDialogButton.Close };
+        StyleNinhoDialog(dialog, 460);
+        ObserveInteractions(dialog);
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
     private async Task<StorageFile?> PickOpen(string[] extensions)
     {
         var picker = new FileOpenPicker();

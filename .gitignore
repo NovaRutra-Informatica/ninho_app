@@ -6,3 +6,8 @@ artifacts/
 .cache/
 *.user
 devdocs
+licensing-private/
+*.pem
+*.key
+*.pfx
+*.p12

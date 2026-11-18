@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Automation;
 using Ninho.Core;
 
 namespace Ninho.Windows;
@@ -8,10 +9,11 @@ public sealed partial class MainWindow
 {
     private string tutorialRoute = "";
     private int tutorialStep;
+    private bool tutorialVisible;
     private static readonly Dictionary<string, (string Title, string Detail)[]> PageGuides = new()
     {
         ["today"] = [
-            ("Seu ponto de partida", "Hoje reúne o que merece atenção: tempo estudado, revisões e sua sequência de dias. Toque nesses cartões para abrir o foco, as revisões ou seu progresso."),
+            ("Seu ponto de partida", "Hoje reúne tempo estudado, revisões e sua sequência de dias. O foguinho fica aceso quando você registra estudo hoje; clique nele para ver o calendário dos dias estudados."),
             ("Continue de onde parou", "O próximo estudo abre a aula que você pode retomar. Tarefas e provas mostram os compromissos da agenda."),
             ("Cada cantinho do seu Ninho", "Na barra da esquerda você navega entre estudos, revisões, materiais, agenda, progresso e assistente. Hora de focar abre o cronômetro; seu nome abre o perfil local.")],
         ["studies"] = [
@@ -41,22 +43,92 @@ public sealed partial class MainWindow
 
     private void ShowPageTutorial()
     {
-        if (State.Profile?.CompletedAt == null || !PageGuides.TryGetValue(route, out var steps) || State.Profile.TutorialsSeen.Contains(route))
-        { TutorialHost.Visibility = Visibility.Collapsed; TutorialHost.Content = null; return; }
-        if (tutorialRoute != route) { tutorialRoute = route; tutorialStep = 0; }
-        tutorialStep = Math.Clamp(tutorialStep, 0, steps.Length - 1);
-        var step = steps[tutorialStep]; var currentRoute = route;
-        async Task Done()
+        TutorialHost.Visibility = Visibility.Collapsed;
+        PageHelp.Visibility = PageGuides.ContainsKey(route) && State.Profile?.CompletedAt != null ? Visibility.Visible : Visibility.Collapsed;
+        AutomationProperties.SetName(PageHelp, "Como usar " + TutorialTitle(route));
+        if (tutorialVisible || State.Profile?.CompletedAt == null || !PageGuides.ContainsKey(route) || State.Profile.TutorialsSeen.Contains(route)) return;
+        var currentRoute = route;
+        DispatcherQueue.TryEnqueue(async () =>
         {
-            await Save(s => { if (s.Profile != null && !s.Profile.TutorialsSeen.Contains(currentRoute)) s.Profile.TutorialsSeen.Add(currentRoute); }, false);
-            ShowPageTutorial();
-        }
-        var next = ActionButton(tutorialStep == steps.Length - 1 ? "Entendi" : "Próximo", async () =>
-        { if (tutorialStep == steps.Length - 1) await Done(); else { tutorialStep++; ShowPageTutorial(); } }, true);
-        var previous = StudyLink("Voltar", "chevron-left", () => { tutorialStep = Math.Max(0, tutorialStep - 1); ShowPageTutorial(); return Task.CompletedTask; }); previous.IsEnabled = tutorialStep > 0;
-        var guide = StudyStack(8, StudyBetween(Caption($"Conheça esta tela · {tutorialStep + 1} de {steps.Length}"), StudyLink("Ver depois no perfil", "x", Done)),
-            StudyBetween(TitleText(step.Title), Row(previous, next)), Body(step.Detail));
-        var panel = Card(guide); panel.Background = StudyMint; panel.Padding = new Thickness(22, 18, 22, 18);
-        TutorialHost.Content = panel; TutorialHost.Visibility = Visibility.Visible;
+            if (route == currentRoute && !tutorialVisible) await OpenPageTutorial();
+        });
     }
+
+    private async void OpenPageHelp(object sender, RoutedEventArgs args)
+    {
+        PlayNavigationSound();
+        await OpenPageTutorial();
+    }
+
+    private async Task OpenPageTutorial()
+    {
+        if (tutorialVisible || !PageGuides.TryGetValue(route, out var steps)) return;
+        tutorialVisible = true; tutorialRoute = route; tutorialStep = 0;
+        var currentRoute = route;
+        var completed = false;
+        var saving = false;
+        var failure = Body(""); failure.Visibility = Visibility.Collapsed;
+        var stepHost = new ContentControl { HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        var skip = new Button { Content = "Ver depois", Style = (Style)Application.Current.Resources["NinhoPlainButtonStyle"], Background = StudySoft, Foreground = DashboardGreen, BorderBrush = DashboardLine, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(15, 10, 15, 10) };
+        var next = new Button { Content = "Próximo", Style = (Style)Application.Current.Resources["AccentButtonStyle"], Background = DashboardGreen, Foreground = DashboardSurface, CornerRadius = new CornerRadius(12), MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var actions = new Grid { ColumnSpacing = 12 };
+        actions.ColumnDefinitions.Add(new ColumnDefinition()); actions.ColumnDefinitions.Add(new ColumnDefinition());
+        actions.Children.Add(skip); Grid.SetColumn(next, 1); actions.Children.Add(next);
+        AutomationProperties.SetAutomationId(skip, "tutorial." + currentRoute + ".skip");
+        AutomationProperties.SetAutomationId(next, "tutorial." + currentRoute + ".continue");
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Root.XamlRoot, RequestedTheme = Root.ActualTheme,
+            Content = Column(stepHost, failure, actions), CornerRadius = new CornerRadius(30),
+            Background = DashboardSurface, Foreground = DashboardInk, BorderBrush = DashboardLine
+        };
+        dialog.Resources["ContentDialogMaxWidth"] = 440d;
+        dialog.Resources["ContentDialogCornerRadius"] = new CornerRadius(30);
+        StyleNinhoDialog(dialog, 440, 30);
+        ObserveInteractions(dialog);
+        AutomationProperties.SetAutomationId(dialog, "tutorial." + currentRoute + ".modal");
+        dialog.Closing += (_, args) => args.Cancel = !completed;
+        void Fill()
+        {
+            var step = steps[tutorialStep];
+            var owl = new OwlControl { Width = 82, Height = 82, Animate = !State.Settings.ReducedMotion };
+            var counter = Caption($"{tutorialStep + 1}/{steps.Length}");
+            AutomationProperties.SetAutomationId(counter, "tutorial." + currentRoute + ".step");
+            var progress = new ProgressBar { Minimum = 0, Maximum = steps.Length, Value = tutorialStep + 1, Height = 5, Foreground = DashboardGreen, Background = StudyMint };
+            var content = Column(StudyBetween(Row(owl, Column(Caption("NO SEU RITMO"), TitleText(TutorialTitle(currentRoute)))), counter), progress, TitleText(step.Title), Body(step.Detail));
+            stepHost.Content = new ScrollViewer { Content = content, MaxHeight = Math.Max(140, Math.Min(400, Root.ActualHeight - 200)), HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+            next.Content = tutorialStep == steps.Length - 1 ? "Entendi" : "Próximo";
+            AnimateLocalChange(content);
+        }
+        async Task Advance(bool advance)
+        {
+            if (saving) return;
+            saving = true; skip.IsEnabled = next.IsEnabled = false;
+            PlayNavigationSound(); failure.Visibility = Visibility.Collapsed;
+            try
+            {
+                if (advance && tutorialStep + 1 < steps.Length) { tutorialStep++; Fill(); }
+                else
+                {
+                    await FlushLocalEdits();
+                    await Save(s => { if (s.Profile == null) throw new InvalidOperationException("Seu perfil não está disponível."); if (!s.Profile.TutorialsSeen.Contains(currentRoute)) s.Profile.TutorialsSeen.Add(currentRoute); }, false);
+                    completed = true; dialog.Hide();
+                }
+            }
+            catch (Exception error) { failure.Text = "Não foi possível salvar agora. " + error.Message; failure.Visibility = Visibility.Visible; }
+            finally { saving = false; skip.IsEnabled = next.IsEnabled = true; }
+        }
+        next.Click += async (_, _) => await Advance(true);
+        skip.Click += async (_, _) => await Advance(false);
+        dialog.Opened += (_, _) => next.Focus(Microsoft.UI.Xaml.FocusState.Keyboard);
+        Fill();
+        try { await dialog.ShowAsync(); }
+        catch (Exception error) { ShowNotice(error.Message, InfoBarSeverity.Error); }
+        finally { tutorialVisible = false; }
+    }
+    private static string TutorialTitle(string page) => page switch
+    {
+        "today" => "Hoje", "studies" => "Meus estudos", "reviews" => "Revisões", "materials" => "Materiais",
+        "agenda" => "Agenda", "progress" => "Meu progresso", "mentor" => "Minha assistente", "timer" => "Hora de focar", _ => "esta tela"
+    };
 }

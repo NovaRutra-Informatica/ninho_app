@@ -5,9 +5,13 @@ using System.Text.RegularExpressions;
 
 namespace Ninho.Core;
 
-public sealed record DailyBackupSnapshot(StudyState State, CoachJournal? Analysis, DateTimeOffset CreatedAt, string Path);
+public sealed record DailyBackupSnapshot(StudyState State, CoachJournal? Analysis, DateTimeOffset CreatedAt, string Path, string RecoveryWarning = "");
+public sealed record DailyBackupListing(IReadOnlyList<string> Paths, bool Complete);
+public sealed class DailyBackupPendingException(string message) : IOException(message);
+public sealed class DailyBackupRecoveryRequiredException() : IOException("Existe uma cópia anterior. Restaure-a antes de enviar esta coleção à pasta escolhida.");
 
-public sealed class DailyBackups(string directory)
+public sealed class DailyBackups(string directory, bool requireExistingDirectory = false,
+    string? recoveryRequirement = null, Func<Task<DailyBackupListing>>? discover = null)
 {
     public const int RetainedDays = 14;
     public const int MaximumStateBytes = 32 * 1024 * 1024;
@@ -28,6 +32,12 @@ public sealed class DailyBackups(string directory)
         await gate.WaitAsync();
         try
         {
+            if (recoveryRequirement != null && File.Exists(recoveryRequirement))
+            {
+                if (await LatestValidAsync() != null) throw new DailyBackupRecoveryRequiredException();
+                FinishInitialRecovery();
+            }
+            if (requireExistingDirectory && !Directory.Exists(DirectoryPath)) throw new DailyBackupPendingException("A pasta escolhida está indisponível. Reconecte o serviço ou a unidade antes de atualizar a cópia.");
             StudyStore.Validate(state); analysis?.Validate();
             Directory.CreateDirectory(DirectoryPath); RejectLink(DirectoryPath);
             var stateBytes = JsonSerializer.SerializeToUtf8Bytes(state, StudyStore.JsonOptions);
@@ -76,19 +86,52 @@ public sealed class DailyBackups(string directory)
 
     public async Task<DailyBackupSnapshot?> LatestValidAsync()
     {
-        foreach (var path in Files().OrderDescending(StringComparer.Ordinal))
+        var listing = discover != null ? await discover() : new DailyBackupListing(Files().ToArray(), true);
+        if (!listing.Complete) throw new DailyBackupPendingException("A descoberta das cópias ainda não terminou. Aguarde a sincronização e tente novamente.");
+        var paths = listing.Paths.Where(p => OwnedName.IsMatch(Path.GetFileName(p))).OrderDescending(StringComparer.Ordinal).ToArray();
+        foreach (var path in paths)
         {
-            try { return await ReadAsync(path); }
-            catch (Exception error) when (error is IOException or JsonException or InvalidDataException or UnauthorizedAccessException) { }
+            try
+            {
+                var attributes = File.GetAttributes(path);
+                if ((attributes & (FileAttributes.Offline | (FileAttributes)0x400000 | (FileAttributes)0x40000)) != 0)
+                    throw new DailyBackupPendingException("Há uma cópia aguardando download. Torne a pasta disponível neste dispositivo e tente novamente.");
+                return await ReadAsync(path);
+            }
+            catch (Exception error) when (error is JsonException or InvalidDataException) { }
         }
+        if (paths.Length > 0) throw new InvalidDataException("As cópias anteriores não puderam ser lidas. Elas foram preservadas; uma coleção nova não será criada sobre elas.");
         return null;
+    }
+
+    public async Task RequireInitialRecoveryAsync()
+    {
+        if (recoveryRequirement == null) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(recoveryRequirement))!);
+        await File.WriteAllTextAsync(recoveryRequirement, "true");
+    }
+
+    public void FinishInitialRecovery()
+    {
+        if (recoveryRequirement != null && File.Exists(recoveryRequirement)) File.Delete(recoveryRequirement);
+    }
+
+    public static bool MatchesRestoredState(DailyBackupSnapshot snapshot, StudyState state)
+    {
+        var restored = StudyStore.DecodeState(JsonSerializer.SerializeToUtf8Bytes(snapshot.State, StudyStore.JsonOptions));
+        restored.Focus.Pause(snapshot.CreatedAt);
+        return JsonSerializer.SerializeToUtf8Bytes(restored, StudyStore.JsonOptions).AsSpan()
+            .SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(state, StudyStore.JsonOptions));
     }
 
     public async Task<DailyBackupSnapshot?> RestoreIfMissingAsync(string dataDirectory)
     {
         var target = Path.Combine(Path.GetFullPath(dataDirectory), "state.json");
         if (File.Exists(target)) return null;
-        var snapshot = await LatestValidAsync(); if (snapshot == null) return null;
+        if (!StudyStore.IsPristineDirectory(dataDirectory)) throw new InvalidDataException("Há arquivos anteriores nesta coleção. A recuperação automática foi pausada para preservá-los.");
+        await RequireInitialRecoveryAsync();
+        var snapshot = await LatestValidAsync();
+        if (snapshot == null) { FinishInitialRecovery(); return null; }
         Directory.CreateDirectory(dataDirectory); RejectLink(dataDirectory);
         // An old running timer must not manufacture study time after reinstalling.
         snapshot.State.Focus.Pause(snapshot.CreatedAt);
@@ -101,7 +144,12 @@ public sealed class DailyBackups(string directory)
             File.Move(temporary, target, false);
             var analysisPath = Path.Combine(dataDirectory, "coach-usage.json");
             if (snapshot.Analysis != null && !File.Exists(analysisPath))
-                await new CoachJournalStore(analysisPath).SaveAsync(snapshot.Analysis);
+            {
+                try { await new CoachJournalStore(analysisPath).SaveAsync(snapshot.Analysis); }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                { snapshot = snapshot with { RecoveryWarning = "Os estudos foram recuperados, mas as observações da assistente não puderam ser copiadas: " + error.Message }; }
+            }
+            FinishInitialRecovery();
             return snapshot;
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
@@ -155,7 +203,16 @@ public sealed class DailyBackups(string directory)
         { if (output.Length + read > maximum) throw new InvalidDataException("Limite da cópia diária excedido."); await output.WriteAsync(buffer.AsMemory(0, read)); }
         return output.ToArray();
     }
-    private IEnumerable<string> Files() => Directory.Exists(DirectoryPath) ? Directory.EnumerateFiles(DirectoryPath).Where(p => OwnedName.IsMatch(Path.GetFileName(p))) : [];
+    private IEnumerable<string> Files()
+    {
+        if (!Directory.Exists(DirectoryPath))
+        {
+            if (requireExistingDirectory) throw new DailyBackupPendingException("A pasta escolhida está indisponível. Reconecte o serviço ou a unidade antes de continuar.");
+            return [];
+        }
+        RejectLink(DirectoryPath);
+        return Directory.EnumerateFiles(DirectoryPath).Where(p => OwnedName.IsMatch(Path.GetFileName(p)));
+    }
     private void Prune()
     {
         foreach (var path in Files().OrderDescending(StringComparer.Ordinal).Skip(RetainedDays))

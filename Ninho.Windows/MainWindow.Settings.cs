@@ -119,8 +119,8 @@ public sealed partial class MainWindow
                     s.Focus.TargetMinutes = s.Focus.IsBreak ? s.Settings.BreakMinutes : s.Settings.FocusMinutes;
             }); } catch { }
         };
-        sound.Toggled += async (_, _) => { var value = sound.IsOn; try { await QueueLocalEdit(s => s.Settings.Sound = value, () => { ApplyTheme(); if (value) PlayNinhoSound(); }); } catch { } };
-        motion.Toggled += async (_, _) => { var value = motion.IsOn; try { await QueueLocalEdit(s => s.Settings.ReducedMotion = value); } catch { } };
+        sound.Toggled += async (_, _) => { var value = sound.IsOn; try { await QueueLocalEdit(s => s.Settings.Sound = value, () => { ApplyTheme(); if (!value) StopNinhoSounds(); }); } catch { } };
+        motion.Toggled += async (_, _) => { var value = motion.IsOn; try { await QueueLocalEdit(s => s.Settings.ReducedMotion = value, () => { if (value) StopPageMotion(); }); } catch { } };
         var rhythm = Column(SettingsHeading("VOCÊ & SEU RITMO", "Pequenos compromissos."), name, StudyLink("Personalizar meu perfil", "graduation-cap", () => { Navigate("profile"); return Task.CompletedTask; }), numbers,
             SettingsText("O limite de novos cartões mantém a rotina leve. As revisões que venceram continuam disponíveis. Para aplicar outro tempo a um cronômetro já iniciado, use Reiniciar.", 10, muted: true));
         rhythm.Spacing = 22;
@@ -165,7 +165,7 @@ public sealed partial class MainWindow
         };
         var heading = Column(Heading("Do seu jeito."), Body("Um ritmo possível é melhor que uma rotina impossível.")); heading.Spacing = 6;
         var version = SettingsText("Ninho · Feito para o seu próximo passo · Windows 11", 9, muted: true); version.TextAlignment = TextAlignment.Center; version.Margin = new Thickness(0, 0, 0, 24);
-        var page = Column(heading, columns, DailyBackupPreferences(), backup, localOptions, version); page.Spacing = 24;
+        var page = Column(heading, columns, PurchasePreferences(), DailyBackupPreferences(), backup, localOptions, version); page.Spacing = 24;
         return page;
     }
     private async Task RestoreBackup()

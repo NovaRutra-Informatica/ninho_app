@@ -6,7 +6,7 @@
       <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
         <Image Source="ms-appx:///Assets/icon.png" Width="24" Height="24" />
         <TextBlock Text="Ninho" VerticalAlignment="Center" FontWeight="SemiBold" />
-        <TextBlock Text="Seu espaço de estudos" VerticalAlignment="Center" Opacity="0.6" Margin="8,0,0,0" FontSize="12" />
+        <TextBlock x:Name="DistributionLabel" Text="Seu espaço de estudos" VerticalAlignment="Center" Opacity="0.6" Margin="8,0,0,0" FontSize="12" />
       </StackPanel>
     </Grid>
     <NavigationView x:Name="Navigation" Grid.Row="1" PaneDisplayMode="Left" OpenPaneLength="230" IsPaneToggleButtonVisible="False" IsTitleBarAutoPaddingEnabled="False" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" ItemInvoked="NavigationInvoked" AlwaysShowHeader="False" Background="{ThemeResource NinhoSurfaceBrush}">
@@ -66,6 +66,7 @@
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <InfoBar x:Name="Notice" IsOpen="False" IsClosable="True" Visibility="Collapsed" Closed="NoticeClosed" Margin="0,0,0,12" />
         <ContentControl x:Name="TutorialHost" Grid.Row="1" HorizontalContentAlignment="Stretch" Visibility="Collapsed" Margin="0,0,0,18" />
+        <Button x:Name="PageHelp" Grid.Row="1" Click="OpenPageHelp" Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,0,8" MinWidth="44" MinHeight="44" AutomationProperties.Name="Como usar esta tela" AutomationProperties.AutomationId="navigation.help" Style="{StaticResource NinhoPlainButtonStyle}"><local:OriginalIcon IconName="circle-help" Size="22" Foreground="{ThemeResource NinhoGreenBrush}" /></Button>
         <ScrollViewer x:Name="PageScroll" Grid.Row="2" Margin="0,0,8,0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Center" SizeChanged="PageSizeChanged">
           <ContentControl x:Name="PageHost" HorizontalContentAlignment="Stretch" HorizontalAlignment="Center" VerticalContentAlignment="Top" MaxWidth="1300" />
         </ScrollViewer>

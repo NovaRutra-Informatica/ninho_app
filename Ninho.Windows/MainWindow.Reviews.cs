@@ -152,7 +152,7 @@ public sealed partial class MainWindow
             {
                 var id = currentId;
                 if (reviewMode != "study" || id.Length == 0 || revealedCard != id || ReviewById(id) == null) return;
-                await Save(s => StudyEngine.Review(s, id, rating.Item1, DateTimeOffset.Now), false);
+                await Save(s => StudyEngine.Review(s, id, rating.Item1, DateTimeOffset.Now), false, immediateBackup: true);
                 reviewedCount++; revealedCard = ""; Render();
             }
             var button = ReviewRating(key, rating.Item2, rating.Item3, rating.Item4, Rate);
@@ -196,9 +196,19 @@ public sealed partial class MainWindow
         var searchFrame = StudySearch(search); searchFrame.HorizontalAlignment = HorizontalAlignment.Left; searchFrame.Width = 390;
         var toolbar = StudyBetween(searchFrame, filter); toolbar.Margin = new Thickness(0, 0, 0, 23);
         var note = StudyText("Os 71 cartões iniciais vieram de dois PDFs consultados: Banco de dados (aula 00) e Literatura (aula 00). As demais aulas estão no catálogo para você acrescentar seus conhecimentos.", 11, muted: true);
-        var rows = StudyStack(14); rows.Margin = new Thickness(0, 19, 0, 0);
-        var items = new Dictionary<string, (FrameworkElement Element, Action<ReviewCard> Update)>();
         var opened = new HashSet<string>();
+        var visibleIds = new System.Collections.ObjectModel.ObservableCollection<string>();
+        var visibleCards = new Dictionary<string, ReviewCard>();
+        var realized = new Dictionary<UIElement, (string Id, Action<ReviewCard> Update)>();
+        var rows = new ItemsRepeater { Layout = new StackLayout { Spacing = 14 }, VerticalCacheLength = 1, Margin = new Thickness(0, 19, 0, 0) };
+        rows.ItemTemplate = new ReviewElementFactory(id =>
+        {
+            var element = ReviewLibraryCard(id, opened, out var updater);
+            updater(visibleCards[id]);
+            realized[element] = (id, updater);
+            return element;
+        }, element => realized.Remove(element));
+        rows.ItemsSource = visibleIds;
         var empty = StudyEmpty("Nenhum cartão por aqui.", State.Subjects.Count > 0 ? "Experimente outro filtro ou guarde um conhecimento novo." : "Crie uma matéria em Meus estudos antes de adicionar cartões.", State.Subjects.Count > 0 ? "Novo cartão" : null, State.Subjects.Count > 0 ? AddQuestion : null);
         var pageText = StudyText("", 10, muted: true);
         const int pageSize = 100;
@@ -207,6 +217,12 @@ public sealed partial class MainWindow
         var next = StudyLink("Próximos", "arrow-right", () => { libraryPage++; fill(); return Task.CompletedTask; }, false);
         var paging = StudyBetween(DashboardRow(back, pageText), next); paging.Margin = new Thickness(0, 14, 0, 0);
         bool filling = false;
+        List<ReviewCard>? previousCards = null;
+        string? previousSubject = null, previousQuery = null, previousFilter = null;
+        var previousPage = -1;
+        var searchDelay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(160) };
+        searchDelay.Tick += (_, _) => { searchDelay.Stop(); fill(); };
+        rows.Unloaded += (_, _) => searchDelay.Stop();
         fill = () =>
         {
             if (filling) return;
@@ -214,29 +230,39 @@ public sealed partial class MainWindow
             try
             {
                 if (Choice(filter) != reviewFilter) filter.SelectedItem = filter.Items.OfType<ComboBoxItem>().FirstOrDefault(x => x.Tag?.ToString() == reviewFilter) ?? filter.Items[0];
+                if (ReferenceEquals(previousCards, State.Cards) && previousSubject == selectedSubject && previousQuery == reviewQuery && previousFilter == reviewFilter && previousPage == libraryPage) return;
                 var matches = State.Cards.Where(x => (selectedSubject == "" || x.SubjectId == selectedSubject) && ContainsText(x.Question + " " + x.Answer, reviewQuery) && (reviewFilter == "all" || reviewFilter == "suspended" && x.Suspended || reviewFilter == "outdated" && x.Flag == "outdated" || reviewFilter == "relearn" && (x.Flag == "relearn" || x.Lapses >= 3))).ToArray();
                 libraryPage = Math.Clamp(libraryPage, 0, Math.Max(0, (matches.Length - 1) / pageSize));
-                var visible = matches.Skip(libraryPage * pageSize).Take(pageSize).ToArray(); var ids = visible.Select(x => x.Id).ToHashSet();
-                foreach (var id in items.Keys.Where(x => !ids.Contains(x)).ToArray()) { rows.Children.Remove(items[id].Element); items.Remove(id); }
-                rows.Children.Remove(empty);
+                var visible = matches.Skip(libraryPage * pageSize).Take(pageSize).ToArray();
+                visibleCards = visible.ToDictionary(card => card.Id);
+                foreach (var item in realized.Values)
+                    if (visibleCards.TryGetValue(item.Id, out var card)) item.Update(card);
+                for (var i = visibleIds.Count - 1; i >= 0; i--)
+                    if (!visibleCards.ContainsKey(visibleIds[i])) visibleIds.RemoveAt(i);
                 for (var i = 0; i < visible.Length; i++)
                 {
-                    var card = visible[i];
-                    if (!items.TryGetValue(card.Id, out var row)) { var element = ReviewLibraryCard(card.Id, opened, out var updater); row = (element, updater); items[card.Id] = row; }
-                    row.Update(card);
-                    if (rows.Children.IndexOf(row.Element) != i) { rows.Children.Remove(row.Element); rows.Children.Insert(i, row.Element); }
+                    var existing = visibleIds.IndexOf(visible[i].Id);
+                    if (existing < 0) visibleIds.Insert(i, visible[i].Id);
+                    else if (existing != i) visibleIds.Move(existing, i);
                 }
-                if (visible.Length == 0) rows.Children.Add(empty);
+                empty.Visibility = matches.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
                 paging.Visibility = matches.Length > pageSize ? Visibility.Visible : Visibility.Collapsed;
                 back.IsEnabled = libraryPage > 0; next.IsEnabled = (libraryPage + 1) * pageSize < matches.Length;
                 pageText.Text = $"{libraryPage * pageSize + 1}–{Math.Min(matches.Length, (libraryPage + 1) * pageSize)} de {matches.Length} cartões";
+                previousCards = State.Cards; previousSubject = selectedSubject; previousQuery = reviewQuery; previousFilter = reviewFilter; previousPage = libraryPage;
             }
             finally { filling = false; }
         };
-        search.TextChanged += (_, _) => { reviewQuery = search.Text; libraryPage = 0; fill(); };
-        filter.SelectionChanged += (_, _) => { if (filling) return; reviewFilter = Choice(filter); libraryPage = 0; fill(); };
+        search.TextChanged += (_, _) => { reviewQuery = search.Text; libraryPage = 0; searchDelay.Stop(); searchDelay.Start(); };
+        filter.SelectionChanged += (_, _) => { if (filling) return; searchDelay.Stop(); reviewFilter = Choice(filter); libraryPage = 0; fill(); };
         update = fill;
-        return StudyStack(0, toolbar, note, paging, rows);
+        return StudyStack(0, toolbar, note, paging, empty, rows);
+    }
+
+    private sealed class ReviewElementFactory(Func<string, UIElement> create, Action<UIElement> recycle) : IElementFactory
+    {
+        public UIElement GetElement(ElementFactoryGetArgs args) => create((string)args.Data);
+        public void RecycleElement(ElementFactoryRecycleArgs args) => recycle(args.Element);
     }
 
     private FrameworkElement ReviewLibraryCard(string id, HashSet<string> opened, out Action<ReviewCard> update)

@@ -12,19 +12,28 @@
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <RuntimeIdentifiers>win-x64;win-arm64;win-x86</RuntimeIdentifiers>
     <SelfContained>false</SelfContained>
     <PublishReadyToRun>true</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
     <AssemblyName>Ninho</AssemblyName>
     <RootNamespace>Ninho.Windows</RootNamespace>
+    <NinhoDistribution Condition="'$(NinhoDistribution)' == ''">Production</NinhoDistribution>
+    <DefineConstants Condition="'$(NinhoDistribution)' == 'Preview'">$(DefineConstants);NINHO_PREVIEW</DefineConstants>
+    <DebugType Condition="'$(NinhoDistribution)' == 'Production' And '$(Configuration)' == 'Release'">none</DebugType>
+    <DebugSymbols Condition="'$(NinhoDistribution)' == 'Production' And '$(Configuration)' == 'Release'">false</DebugSymbols>
+    <CopyOutputSymbolsToPublishDirectory Condition="'$(NinhoDistribution)' == 'Production'">false</CopyOutputSymbolsToPublishDirectory>
+    <LicensingPublicConfiguration Condition="'$(LicensingPublicConfiguration)' == ''">$(MSBuildProjectDirectory)/Licensing/production.public.json</LicensingPublicConfiguration>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.9169" />
-    <PackageReference Include="LLamaSharp" Version="0.27.0" />
-    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.7.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
+    <PackageReference Include="LLamaSharp" Version="0.30.0" />
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.30.0" />
     <PackageReference Include="PdfPig" Version="0.1.16" />
     <ProjectReference Include="../Ninho.Core/Ninho.Core.csproj" />
+    <ProjectReference Include="../Ninho.Licensing.Windows/Ninho.Licensing.Windows.csproj" />
+    <EmbeddedResource Include="$(LicensingPublicConfiguration)" LogicalName="Ninho.Licensing.production.public.json" />
     <Content Include="../resources/icon.png" Link="Assets/icon.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../resources/icon.ico" Link="Assets/icon.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../resources/icon.svg" Link="Assets/icon.svg" CopyToOutputDirectory="PreserveNewest" />
@@ -33,6 +42,15 @@
     <Content Include="Assets/Icons/**" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets/Sounds/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="ValidateLicenseDistribution" BeforeTargets="CoreCompile">
+    <Error Condition="'$(NinhoDistribution)' != 'Production' And '$(NinhoDistribution)' != 'Preview'" Text="NinhoDistribution must be Production or Preview." />
+    <Error Condition="'$(NinhoDistribution)' == 'Production' And '$(Configuration)' == 'Release' And ($([System.String]::Copy('$(DefineConstants)').Contains('NINHO_PREVIEW')) Or $([System.String]::Copy('$(DefineConstants)').Contains('DEBUG')))" Text="Commercial Release must not contain development bypass symbols." />
+  </Target>
+  <Target Name="ValidateCommercialLicenseConfiguration" BeforeTargets="PrepareForPublish" Condition="'$(NinhoDistribution)' == 'Production'">
+    <Error Condition="'$(NoBuild)' == 'true'" Text="Commercial publication must rebuild the application to avoid reusing a Preview binary." />
+    <Error Condition="'$(Configuration)' != 'Release'" Text="Commercial publication requires Release." />
+    <Exec Command="powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)/../scripts/validate-license-config.ps1&quot; -Path &quot;$(LicensingPublicConfiguration)&quot;" />
+  </Target>
   <!-- Unpackaged dotnet publish does not automatically include WinUI's generated payload. -->
   <Target Name="IncludeCompiledXamlInPublish" AfterTargets="ComputeFilesToPublish">
     <Error Condition="!Exists('$(TargetDir)$(AssemblyName).pri')" Text="The compiled WinUI resource index is missing. Build before publishing." />

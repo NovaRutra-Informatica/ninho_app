@@ -21,14 +21,22 @@ public sealed partial class MainWindow
 
     private async Task InitializeCoach()
     {
+        if (licenseWindowClosed) return;
         coachJournalStore = new CoachJournalStore(Path.Combine(store.DirectoryPath, "coach-usage.json"));
         try { coachJournal = await coachJournalStore.LoadAsync(); journalWritable = true; }
         catch { ShowNotice("O histórico de navegação não pôde ser lido e foi preservado. Seus estudos continuam disponíveis."); }
+        if (licenseWindowClosed) return;
         usageClock.Tick += (_, _) => { ObserveUsage(false); QueueCoachRefresh(); };
-        Root.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => CoachInteraction()), true);
-        Root.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, _) => CoachInteraction()), true);
+        ObserveInteractions(Root);
         if (appActive) usageClock.Start();
         ObserveUsage(true); QueueCoachRefresh();
+    }
+    private void ObserveInteractions(UIElement surface)
+    {
+        surface.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => CoachInteraction()), true);
+        surface.AddHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, args) => { var point = args.GetCurrentPoint(surface); if (point.IsInContact || point.Properties.IsLeftButtonPressed) CoachInteraction(); }), true);
+        surface.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => CoachInteraction()), true);
+        surface.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, _) => CoachInteraction()), true);
     }
     private void ObserveUsage(bool visit, bool pause = false)
     {
@@ -68,11 +76,13 @@ public sealed partial class MainWindow
     }
     private void CoachActivation(bool active)
     {
+        if (licenseWindowClosed) return;
         if (appActive == active) return;
         // Account for the visible interval before changing state; deactivation never counts as a focus pause.
         ObserveUsage(false); appActive = active;
         if (!active)
         {
+            StopNinhoSounds();
             usageWatch.Stop(); usageClock.Stop(); coachAnalysis?.Cancel(); generation?.Cancel(); profileGeneration?.Cancel();
         }
         else if (ready) { lastCoachInteraction = Stopwatch.GetTimestamp(); usageWatch.Restart(); usageClock.Start(); QueueCoachRefresh(); }

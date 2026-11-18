@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using Ninho.Core;
 
 namespace Ninho.Windows;
 
@@ -12,24 +13,29 @@ public sealed partial class MainWindow
 {
     private int Streak()
     {
-        var now = DateTimeOffset.Now;
-        var days = State.Sessions.Where(x => x.CompletedAt <= now && (x.DurationMinutes > 0 || x.Kind == "review")).Select(x => x.CompletedAt.LocalDateTime.Date)
-            .Concat(State.Attempts.Where(x => x.At <= now).Select(x => x.At.LocalDateTime.Date)).ToHashSet();
-        var day = days.Contains(DateTime.Today) ? DateTime.Today : DateTime.Today.AddDays(-1); var count = 0;
-        while (days.Contains(day)) { count++; day = day.AddDays(-1); } return count;
+        return StudyStreak.Count(StudyStreak.ActiveDays(State, DateTimeOffset.Now), DateOnly.FromDateTime(DateTime.Today));
     }
     private StackPanel ProgressPage()
     {
         var page = StudyStack(0, PlanningHeading("Olha o quanto você está construindo.", "Cada aula, cada revisão, cada minuto. Tudo conta.", PlanningBadge("SEU PERCURSO", icon: "trending-up")));
         var summary = new AdaptiveColumns { MaximumColumns = 4, MinimumColumnWidth = 170, Gap = 16, Margin = new Thickness(0, 0, 0, 23) };
         var numbers = new List<(Run Value, Run Suffix)>();
+        OriginalIcon? streakGraphic = null;
         foreach (var (icon, description) in new[] { ("timer", "dedicados a aprender"), ("book-open", "aulas concluídas"), ("brain", "conhecimentos revisitados"), ("flame", "na sua sequência atual") })
         {
             var graphic = OriginalIcon.Create(icon, 22, ColorBrush("#91AA83")); graphic.HorizontalAlignment = HorizontalAlignment.Left; graphic.Margin = new Thickness(0, 0, 0, 19);
             var number = StudyText("", 31); number.FontWeight = FontWeights.Medium;
             var value = new Run(); var suffix = new Run { FontSize = 12, FontWeight = FontWeights.Normal, FontFamily = (FontFamily)Application.Current.Resources["ContentControlThemeFontFamily"] }; number.Inlines.Add(value); number.Inlines.Add(suffix); numbers.Add((value, suffix));
             var label = StudyText(description, 10, muted: true); label.Margin = new Thickness(0, 6, 0, 0);
-            summary.Children.Add(DashboardPanel(StudyStack(0, graphic, number, label), new Thickness(23)));
+            var panel = DashboardPanel(StudyStack(0, graphic, number, label), new Thickness(23));
+            if (icon == "flame")
+            {
+                streakGraphic = graphic;
+                var button = StudyPlain("Sua sequência · abrir calendário", panel, OpenStreakCalendar);
+                button.HorizontalContentAlignment = HorizontalAlignment.Stretch; button.HorizontalAlignment = HorizontalAlignment.Stretch;
+                summary.Children.Add(button);
+            }
+            else summary.Children.Add(panel);
         }
         page.Children.Add(summary);
         var weekTitle = DashboardText("Seus últimos sete dias", 23, display: true); weekTitle.CharacterSpacing = -22; weekTitle.Margin = new Thickness(0, 9, 0, 0);
@@ -74,6 +80,7 @@ public sealed partial class MainWindow
         void RefreshProgress()
         {
             var total = State.Sessions.Sum(x => x.DurationMinutes); var done = State.Lessons.Count(x => x.Status == "done"); var practiced = State.Cards.Count(x => x.LastReviewedAt != null); var streak = Streak();
+            if (streakGraphic != null) streakGraphic.Foreground = ColorBrush(StudyStreak.ActiveDays(State, DateTimeOffset.Now).Contains(DateOnly.FromDateTime(DateTime.Today)) ? "#C88E67" : "#87928B");
             var values = new[] { (Math.Round(total).ToString(), " min"), (done.ToString(), $" / {State.Lessons.Count}"), (practiced.ToString(), $" / {State.Cards.Count}"), (streak.ToString(), " dias") };
             for (var index = 0; index < values.Length; index++) { numbers[index].Value.Text = values[index].Item1; numbers[index].Suffix.Text = values[index].Item2; }
             var byDay = State.Sessions.GroupBy(x => x.CompletedAt.LocalDateTime.Date).ToDictionary(x => x.Key, x => x.Sum(y => y.DurationMinutes));

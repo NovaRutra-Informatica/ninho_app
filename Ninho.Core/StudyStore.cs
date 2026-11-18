@@ -16,6 +16,8 @@ public sealed class StudyStore(string directory)
     public string? MigrationMessage { get; private set; }
     private const long MaxStateBytes = 32 * 1024 * 1024;
     private string StatePath => Path.Combine(directory, "state.json");
+    public static bool IsPristineDirectory(string path) => !Directory.Exists(path) ||
+        !Directory.EnumerateFileSystemEntries(path).Any(entry => !Directory.Exists(entry) || !Path.GetFileName(entry).Equals("automatic-backups", StringComparison.OrdinalIgnoreCase));
 
     public async Task LoadAsync(string seedPath, string? legacyDirectory = null)
     {
@@ -26,6 +28,7 @@ public sealed class StudyStore(string directory)
             if (File.Exists(StatePath)) State = await ReadAsync(StatePath);
             else
             {
+                if (!IsPristineDirectory(directory)) throw new InvalidDataException("Há arquivos anteriores nesta coleção, mas o estado principal está ausente. Recupere o backup antes de criar novos dados.");
                 var legacyPath = legacyDirectory == null ? null : Path.Combine(legacyDirectory, "state.json");
                 var migrated = legacyPath != null && File.Exists(legacyPath);
                 var candidate = await ReadAsync(migrated ? legacyPath! : seedPath);
@@ -362,7 +365,7 @@ public sealed class StudyStore(string directory)
         else if (value.ValueKind == JsonValueKind.Array) foreach (var item in value.EnumerateArray()) RejectDuplicateProperties(item);
     }
 
-    private async Task WriteAsync(StudyState state)
+    private Task WriteAsync(StudyState state) => Task.Run(async () =>
     {
         var temporary = StatePath + ".tmp";
         await using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.WriteThrough))
@@ -372,7 +375,7 @@ public sealed class StudyStore(string directory)
         }
         if (File.Exists(StatePath)) File.Replace(temporary, StatePath, StatePath + ".previous", true);
         else File.Move(temporary, StatePath);
-    }
+    });
 
     private async Task PreserveBeforeRestoreAsync()
     {
